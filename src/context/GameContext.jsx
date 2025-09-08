@@ -611,24 +611,6 @@ export const GameProvider = ({ children }) => {
     setGameState(prev => ({ ...prev, seasonalEvent: getActiveEvent() }));
   }, []);
 
-
-  // Salva personalização no localStorage (com debounce para evitar múltiplas chamadas)
-  useEffect(() => {
-    if (gameState.customization) {
-      const timeoutId = setTimeout(() => {
-        console.log('Salvando configurações no localStorage:', gameState.customization);
-        try {
-      localStorage.setItem('nutriaCustomization', JSON.stringify(gameState.customization));
-          console.log('Configurações salvas com sucesso!');
-        } catch (error) {
-          console.error('Erro ao salvar configurações:', error);
-        }
-      }, 100);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [JSON.stringify(gameState.customization)]);
-
   // ===== SISTEMA DE ENERGIA =====
 
   const updateEnergy = () => {
@@ -649,6 +631,23 @@ export const GameProvider = ({ children }) => {
       };
     });
   };
+
+  // Salva personalização no localStorage (com debounce para evitar múltiplas chamadas)
+  useEffect(() => {
+    if (gameState.customization) {
+      const timeoutId = setTimeout(() => {
+        console.log('Salvando configurações no localStorage:', gameState.customization);
+        try {
+      localStorage.setItem('nutriaCustomization', JSON.stringify(gameState.customization));
+          console.log('Configurações salvas com sucesso!');
+        } catch (error) {
+          console.error('Erro ao salvar configurações:', error);
+        }
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [JSON.stringify(gameState.customization)]);
 
   const updateAchievements = (state) => {
     const unlocked = new Set(state.achievements || []);
