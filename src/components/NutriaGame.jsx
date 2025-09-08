@@ -1244,9 +1244,9 @@ const SettingsModal = ({ isOpen, onClose, theme, toggleTheme, customization, upd
           
           {activeTab === 'game' && (
             <div className="settings-section">
-              <h3 className="settings-subtitle">Configurações do Jogo</h3>
+              <h3 className="settings-subtitle">{t('gameSettings')}</h3>
               <div className="settings-option">
-                <span>Efeitos Sonoros</span>
+                <span>{t('soundEffects')}</span>
                 <label className="toggle-switch">
                   <input 
                     type="checkbox" 
@@ -1257,7 +1257,7 @@ const SettingsModal = ({ isOpen, onClose, theme, toggleTheme, customization, upd
                 </label>
               </div>
               <div className="settings-option">
-                <span>Notificações</span>
+                <span>{t('notifications')}</span>
                 <label className="toggle-switch">
                   <input 
                     type="checkbox" 
@@ -1268,7 +1268,7 @@ const SettingsModal = ({ isOpen, onClose, theme, toggleTheme, customization, upd
                 </label>
               </div>
               <div className="settings-option">
-                <span>Mostrar Animações</span>
+                <span>{t('showAnimations')}</span>
                 <label className="toggle-switch">
                   <input 
                     type="checkbox" 
@@ -1279,7 +1279,7 @@ const SettingsModal = ({ isOpen, onClose, theme, toggleTheme, customization, upd
                 </label>
               </div>
               <p className="settings-note">
-                <FaInfoCircle /> Mais configurações em breve!
+                <FaInfoCircle /> {t('moreSettingsSoon')}
               </p>
             </div>
           )}

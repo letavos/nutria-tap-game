@@ -101,9 +101,11 @@ const Onboarding = ({ onComplete }) => {
         <div className="onboarding-progress">
           <div className="progress-dots">
             {steps.map((_, index) => (
-              <div 
+              <button
                 key={index}
                 className={`progress-dot${index === currentStep ? ' active' : ''}`}
+                onClick={() => setCurrentStep(index)}
+                aria-label={`Ir para passo ${index + 1}`}
               />
             ))}
           </div>

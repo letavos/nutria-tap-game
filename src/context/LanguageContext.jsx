@@ -267,6 +267,10 @@ const translations = {
     perWeek: 'por semana',
     perMonth: 'por mês',
     loginRewardsDesc: 'Recompensas especiais por manter o login',
+    gameSettings: 'Configurações do Jogo',
+    soundEffects: 'Efeitos Sonoros',
+    showAnimations: 'Mostrar Animações',
+    moreSettingsSoon: 'Mais configurações em breve!',
     skip: 'Pular',
     start: 'Começar',
     
@@ -936,6 +940,10 @@ const translations = {
     perWeek: 'per week',
     perMonth: 'per month',
     loginRewardsDesc: 'Special rewards for maintaining login',
+    gameSettings: 'Game Settings',
+    soundEffects: 'Sound Effects',
+    showAnimations: 'Show Animations',
+    moreSettingsSoon: 'More settings coming soon!',
     skip: 'Skip',
     start: 'Start',
     
