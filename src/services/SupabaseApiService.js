@@ -215,27 +215,40 @@ class SupabaseApiService {
     }
 
     return this.withRetry(async () => {
-      // Usar a tabela users diretamente com join para game_stats
+      // Usar a tabela game_stats diretamente com join para users
       const { data, error } = await supabase
-        .from('users')
+        .from('game_stats')
         .select(`
-          id,
-          username,
-          email,
-          created_at,
-          game_stats!inner(
-            total_coins,
-            total_clicks,
-            level,
-            prestige_level,
-            streak
+          user_id,
+          total_coins,
+          total_clicks,
+          level,
+          prestige_level,
+          streak,
+          users!inner(
+            id,
+            username,
+            email,
+            created_at
           )
         `)
-        .order('game_stats.total_coins', { ascending: false })
+        .order('total_coins', { ascending: false })
         .limit(limit);
 
       if (error) throw error;
-      return data;
+      
+      // Transformar os dados para o formato esperado
+      return data.map(item => ({
+        id: item.user_id,
+        username: item.users.username,
+        email: item.users.email,
+        created_at: item.users.created_at,
+        total_coins: item.total_coins,
+        total_clicks: item.total_clicks,
+        level: item.level,
+        prestige_level: item.prestige_level,
+        streak: item.streak
+      }));
     });
   }
 
@@ -247,25 +260,38 @@ class SupabaseApiService {
 
     return this.withRetry(async () => {
       const { data, error } = await supabase
-        .from('users')
+        .from('game_stats')
         .select(`
-          id,
-          username,
-          email,
-          created_at,
-          game_stats!inner(
-            total_coins,
-            total_clicks,
-            level,
-            prestige_level,
-            streak
+          user_id,
+          total_coins,
+          total_clicks,
+          level,
+          prestige_level,
+          streak,
+          users!inner(
+            id,
+            username,
+            email,
+            created_at
           )
         `)
-        .eq('id', userId)
+        .eq('user_id', userId)
         .single();
 
       if (error) throw error;
-      return data;
+      
+      // Transformar os dados para o formato esperado
+      return {
+        id: data.user_id,
+        username: data.users.username,
+        email: data.users.email,
+        created_at: data.users.created_at,
+        total_coins: data.total_coins,
+        total_clicks: data.total_clicks,
+        level: data.level,
+        prestige_level: data.prestige_level,
+        streak: data.streak
+      };
     });
   }
 
