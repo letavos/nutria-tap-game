@@ -102,7 +102,7 @@ class SupabaseApiService {
         .single();
 
       if (error) throw error;
-      return data;
+      return { success: true, data };
     });
   }
 
@@ -178,7 +178,7 @@ class SupabaseApiService {
         .single();
 
       if (error) throw error;
-      return data;
+      return { success: true, data };
     });
   }
 

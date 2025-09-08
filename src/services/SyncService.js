@@ -1,5 +1,5 @@
 // Serviço de Sincronização para Nutria Tap PWA
-import apiService from './ApiService';
+import supabaseApiService from './SupabaseApiService';
 
 class SyncService {
   constructor() {
@@ -71,7 +71,7 @@ class SyncService {
       const currentUser = JSON.parse(localStorage.getItem('nutriaTap_currentUser') || 'null');
       if (!currentUser) return;
 
-      const result = await apiService.updateUser(currentUser.id, currentUser);
+      const result = await supabaseApiService.updateUserProfile(currentUser.id, currentUser);
       if (result.success) {
         console.log('Dados do usuário sincronizados');
       }
@@ -97,7 +97,7 @@ class SyncService {
         prestige: gameState.prestige
       };
 
-      const result = await apiService.submitScore(currentUser, gameStats);
+      const result = await supabaseApiService.updateUserStats(currentUser.id, gameStats);
       if (result.success) {
         console.log('Dados do jogo sincronizados');
       }
@@ -109,7 +109,7 @@ class SyncService {
   // Sincronizar dados de ranking
   async syncRankingData() {
     try {
-      const rankingData = await apiService.getGlobalRanking('totalCoins', 100);
+      const rankingData = await supabaseApiService.getRanking(100);
       if (rankingData && rankingData.length > 0) {
         // Salvar ranking atualizado no IndexedDB
         const { default: indexedDBManager } = await import('../utils/IndexedDBManager');
@@ -136,7 +136,7 @@ class SyncService {
       // Sincronizar cada conquista
       for (const achievement of gameState.achievements) {
         try {
-          await apiService.submitAchievement(currentUser.id, achievement);
+          await supabaseApiService.submitAchievement(currentUser.id, achievement);
         } catch (error) {
           console.error('Erro ao sincronizar conquista:', error);
         }
