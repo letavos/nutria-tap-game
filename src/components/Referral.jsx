@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaCopy, FaUserPlus, FaCheck, FaUserCircle } from 'react-icons/fa';
+import { FaCopy, FaUserPlus, FaCheck, FaUserCircle, FaUser } from 'react-icons/fa';
 import { useGame } from '../context/GameContext';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -50,7 +50,7 @@ const Referral = () => {
     <div className="referral-container">
       <div className="card referral-card">
         <div className="referral-header">
-          <FaUserCircle size={48} className="referral-header-icon" />
+          <FaUser size={48} className="referral-header-icon" />
           <h3 className="referral-header-title">{t('referralSystem')}</h3>
           <p className="referral-header-subtitle">{t('inviteFriends')}</p>
         </div>
@@ -122,7 +122,7 @@ const Referral = () => {
                   <div key={index} className="referral-item">
                     <div className="referral-item-content">
                       <div className="referral-item-icon">
-                        <FaUserCircle />
+                        <FaUser />
                       </div>
                       <span className="referral-item-name">{ref}</span>
                     </div>
