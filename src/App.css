@@ -1131,9 +1131,10 @@
   position: relative;
   z-index: 1;
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  gap: 12px;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 
 /* Título do jogador */
@@ -1268,6 +1269,39 @@
   filter: blur(2px);
 }
 
+/* Garantir 2 linhas em todas as telas */
+@media (min-width: 769px) {
+  .premium-header {
+    min-height: 120px;
+  }
+  
+  .header-top-row {
+    margin-bottom: 16px;
+  }
+  
+  .header-bottom-row {
+    gap: 30px;
+  }
+  
+  .player-title-badge,
+  .prestige-badge-premium {
+    font-size: 15px;
+    padding: 10px 20px;
+  }
+  
+  .currency-display {
+    padding: 12px 20px;
+  }
+  
+  .currency-amount {
+    font-size: 18px;
+  }
+  
+  .currency-symbol {
+    font-size: 13px;
+  }
+}
+
 /* Responsividade para mobile */
 @media (max-width: 768px) {
   .premium-header {
@@ -1305,6 +1339,21 @@
   
   .currency-symbol {
     font-size: 10px;
+  }
+  
+  /* Mobile: Mais espaço entre logo e botões */
+  .header-top-row {
+    justify-content: space-between;
+    gap: 0;
+  }
+  
+  .header-logo {
+    flex: 0 0 auto;
+  }
+  
+  .header-actions {
+    flex: 0 0 auto;
+    margin-left: auto;
   }
 }
 
@@ -1348,6 +1397,21 @@
   
   .currency-symbol {
     font-size: 9px;
+  }
+  
+  /* Mobile pequeno: Mesmo comportamento */
+  .header-top-row {
+    justify-content: space-between;
+    gap: 0;
+  }
+  
+  .header-logo {
+    flex: 0 0 auto;
+  }
+  
+  .header-actions {
+    flex: 0 0 auto;
+    margin-left: auto;
   }
 }
 
