@@ -484,11 +484,26 @@ export const GameProvider = ({ children }) => {
   // Sistema de Recuperação de Energia
   useEffect(() => {
     const energyInterval = setInterval(() => {
-      updateEnergy();
+      setGameState(prev => {
+        const now = Date.now();
+        const timeDiff = (now - prev.energy.lastUpdate) / 1000 / 60; // minutos
+        const energyToAdd = Math.floor(timeDiff * prev.energy.recoveryRate);
+        const newEnergy = Math.min(prev.energy.max, prev.energy.current + energyToAdd);
+        
+        return {
+          ...prev,
+          energy: {
+            ...prev.energy,
+            current: newEnergy,
+            lastUpdate: now,
+            isRecovering: newEnergy < prev.energy.max
+          }
+        };
+      });
     }, 60000); // Atualizar energia a cada minuto
 
     return () => clearInterval(energyInterval);
-  }, [updateEnergy]);
+  }, []);
 
   // Sistema de Auto-Clicker
   useEffect(() => {
@@ -1416,7 +1431,6 @@ export const GameProvider = ({ children }) => {
         manualSync,
         // Sistema de Energia
         clickNutria,
-        updateEnergy,
         canClick,
         spendEnergy,
         // Sistema Anti-Cheat
