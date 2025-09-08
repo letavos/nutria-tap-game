@@ -110,7 +110,25 @@ export const AuthProvider = ({ children }) => {
         throw new Error(result.error);
       }
     } catch (error) {
-      const errorMessage = error.message || 'Erro ao criar conta';
+      console.error('Erro no registro:', error);
+      
+      // Tratar erros específicos do Supabase
+      let errorMessage = 'Erro ao criar conta';
+      
+      if (error.message.includes('Database error')) {
+        errorMessage = 'Erro no servidor. Tente novamente em alguns minutos.';
+      } else if (error.message.includes('already registered')) {
+        errorMessage = 'Este email já está cadastrado. Tente fazer login.';
+      } else if (error.message.includes('Invalid email')) {
+        errorMessage = 'Email inválido. Verifique o formato.';
+      } else if (error.message.includes('Password should be at least')) {
+        errorMessage = 'Senha deve ter pelo menos 6 caracteres.';
+      } else if (error.message.includes('username')) {
+        errorMessage = 'Nome de usuário já está em uso.';
+      } else {
+        errorMessage = error.message || 'Erro ao criar conta. Tente novamente.';
+      }
+      
       setError(errorMessage);
       return {
         success: false,

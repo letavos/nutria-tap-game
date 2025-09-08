@@ -137,6 +137,30 @@ class SupabaseApiService {
     }
 
     return this.withRetry(async () => {
+      // Primeiro verificar se o usuário existe
+      const { data: userExists, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', userId)
+        .single();
+
+      if (userError || !userExists) {
+        throw new Error('Usuário não encontrado');
+      }
+
+      // Verificar se as estatísticas existem
+      const { data: existingStats, error: statsError } = await supabase
+        .from('game_stats')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
+
+      if (statsError && statsError.code === 'PGRST116') {
+        // Criar estatísticas se não existirem
+        return await this.createInitialStats(userId);
+      }
+
+      // Atualizar estatísticas existentes
       const { data, error } = await supabase
         .from('game_stats')
         .update({
@@ -171,7 +195,13 @@ class SupabaseApiService {
         .eq('user_id', userId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // Estatísticas não encontradas, criar iniciais
+          return await this.createInitialStats(userId);
+        }
+        throw error;
+      }
       return data;
     });
   }
@@ -185,9 +215,23 @@ class SupabaseApiService {
     }
 
     return this.withRetry(async () => {
+      // Usar a tabela users diretamente com join para game_stats
       const { data, error } = await supabase
-        .from('ranking_view')
-        .select('*')
+        .from('users')
+        .select(`
+          id,
+          username,
+          email,
+          created_at,
+          game_stats!inner(
+            total_coins,
+            total_clicks,
+            level,
+            prestige_level,
+            streak
+          )
+        `)
+        .order('game_stats.total_coins', { ascending: false })
         .limit(limit);
 
       if (error) throw error;
@@ -203,8 +247,20 @@ class SupabaseApiService {
 
     return this.withRetry(async () => {
       const { data, error } = await supabase
-        .from('ranking_view')
-        .select('*')
+        .from('users')
+        .select(`
+          id,
+          username,
+          email,
+          created_at,
+          game_stats!inner(
+            total_coins,
+            total_clicks,
+            level,
+            prestige_level,
+            streak
+          )
+        `)
         .eq('id', userId)
         .single();
 
@@ -384,6 +440,29 @@ class SupabaseApiService {
 
       if (error && error.code !== 'PGRST116') throw error;
       return !data; // true se disponível, false se já existe
+    });
+  }
+
+  // Obter referral ID do usuário
+  async getUserReferralId(userId) {
+    if (!this.isOnline()) {
+      throw new Error('Modo offline - não é possível obter referral ID');
+    }
+
+    return this.withRetry(async () => {
+      const { data, error } = await supabase
+        .from('users')
+        .select('referral_id')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return null; // Usuário não encontrado
+        }
+        throw error;
+      }
+      return data?.referral_id || null;
     });
   }
 

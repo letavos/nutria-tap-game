@@ -266,7 +266,7 @@ function FloatingCoin({ active, position }) {
 }
 
 const NutriaClicker = () => {
-  const { gameState, addCoins, levelUpEffect, customization } = useGame();
+  const { gameState, clickNutria, canClick, levelUpEffect, customization } = useGame();
   const { t } = useLanguage();
   const [isFeeding, setIsFeeding] = useState(false);
   const [pointAnims, setPointAnims] = useState([]);
@@ -320,9 +320,27 @@ const NutriaClicker = () => {
   const handleClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    addCoins();
-    setIsFeeding(true);
-    setTimeout(() => setIsFeeding(false), 150);
+    
+    // Verificar se pode clicar (energia suficiente)
+    if (!canClick()) {
+      // Mostrar feedback visual de energia insuficiente
+      setShake(true);
+      setTimeout(() => setShake(false), 300);
+      return;
+    }
+    
+    // Executar clique com validação de energia e anti-cheat
+    const clickSuccessful = clickNutria();
+    
+    if (clickSuccessful) {
+      setIsFeeding(true);
+      setTimeout(() => setIsFeeding(false), 150);
+    } else {
+      // Clique bloqueado (suspeita de auto-click)
+      setShake(true);
+      setTimeout(() => setShake(false), 300);
+      return;
+    }
     
     // Calcular posição relativa do clique para o efeito
     if (containerRef.current) {

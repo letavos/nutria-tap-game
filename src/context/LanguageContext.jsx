@@ -270,7 +270,15 @@ const translations = {
     gameSettings: 'Configurações do Jogo',
     soundEffects: 'Efeitos Sonoros',
     showAnimations: 'Mostrar Animações',
-    moreSettingsSoon: 'Mais configurações em breve!',
+      moreSettingsSoon: 'Mais configurações em breve!',
+      
+      // Sistema de Energia
+      energy: 'Energia',
+      energyLow: 'Energia baixa!',
+      energyEmpty: 'Energia esgotada! Aguarde a recuperação.',
+      energyRecovering: 'Recuperando energia...',
+      energyFull: 'Energia cheia!',
+      clicksBlocked: 'Cliques muito rápidos detectados. Aguarde um momento.',
     skip: 'Pular',
     start: 'Começar',
     
@@ -943,7 +951,15 @@ const translations = {
     gameSettings: 'Game Settings',
     soundEffects: 'Sound Effects',
     showAnimations: 'Show Animations',
-    moreSettingsSoon: 'More settings coming soon!',
+      moreSettingsSoon: 'More settings coming soon!',
+      
+      // Energy System
+      energy: 'Energy',
+      energyLow: 'Low energy!',
+      energyEmpty: 'Energy depleted! Wait for recovery.',
+      energyRecovering: 'Recovering energy...',
+      energyFull: 'Energy full!',
+      clicksBlocked: 'Too fast clicks detected. Please wait.',
     skip: 'Skip',
     start: 'Start',
     

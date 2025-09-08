@@ -120,6 +120,7 @@ class SyncService {
       }
     } catch (error) {
       console.error('Erro ao sincronizar dados de ranking:', error);
+      // Não propagar erro para não quebrar a sincronização completa
     }
   }
 

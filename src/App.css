@@ -991,9 +991,9 @@
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-/* ===== HEADER PREMIUM - LAYOUT 2 LINHAS ===== */
+/* ===== HEADER PREMIUM - LAYOUT EXATO ===== */
 
-/* Header principal com layout em 2 linhas */
+/* Header principal com CSS Grid */
 .premium-header {
   position: relative;
   width: 100%;
@@ -1008,6 +1008,11 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.1);
   overflow: hidden;
+  
+  /* CSS GRID - 2 LINHAS */
+  display: grid;
+  grid-template-rows: auto auto;
+  gap: 12px;
 }
 
 .header-background {
@@ -1025,14 +1030,15 @@
   z-index: 0;
 }
 
-/* PRIMEIRA LINHA: Logo + Botões */
+/* PRIMEIRA LINHA: Logo + Energia + Botões */
 .header-top-row {
   position: relative;
   z-index: 1;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 /* Logo do jogo */
@@ -1045,6 +1051,7 @@
   font-size: 24px;
   text-transform: uppercase;
   letter-spacing: 1px;
+  flex: 0 0 auto;
 }
 
 .logo-nutria {
@@ -1057,11 +1064,20 @@
   text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
 }
 
+/* Energia na primeira linha */
+.header-energy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
 /* Botões de ação */
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  flex: 0 0 auto;
 }
 
 .notification-btn-premium,
@@ -1126,7 +1142,7 @@
   opacity: 0.3;
 }
 
-/* SEGUNDA LINHA: Título, Prestígio e Moedas */
+/* SEGUNDA LINHA: Título + Prestígio + Moedas */
 .header-bottom-row {
   position: relative;
   z-index: 1;
@@ -1148,12 +1164,13 @@
   );
   border: 1px solid rgba(255, 215, 0, 0.4);
   border-radius: 25px;
-  padding: 8px 16px;
+  padding: 10px 18px;
   font-size: 14px;
   font-weight: 600;
   color: var(--nutria-gold);
   backdrop-filter: blur(10px);
   white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .title-icon {
@@ -1171,12 +1188,13 @@
   );
   border: 1px solid rgba(155, 89, 182, 0.4);
   border-radius: 25px;
-  padding: 8px 16px;
+  padding: 10px 18px;
   font-size: 14px;
   font-weight: 600;
   color: white;
   backdrop-filter: blur(10px);
   white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .prestige-icon {
@@ -1223,6 +1241,82 @@
   padding: 10px 18px;
   backdrop-filter: blur(10px);
   white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+/* Energia/Estamina */
+.energy-display {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, 
+    rgba(52, 152, 219, 0.15) 0%, 
+    rgba(41, 128, 185, 0.15) 100%
+  );
+  border: 1px solid rgba(52, 152, 219, 0.3);
+  border-radius: 25px;
+  padding: 8px 16px;
+  backdrop-filter: blur(10px);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.energy-icon {
+  font-size: 16px;
+  color: #3498db;
+  filter: drop-shadow(0 2px 4px rgba(52, 152, 219, 0.3));
+}
+
+.energy-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.energy-amount {
+  font-size: 14px;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.energy-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: #3498db;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.energy-low {
+  border-color: rgba(231, 76, 60, 0.4);
+  background: linear-gradient(135deg, 
+    rgba(231, 76, 60, 0.15) 0%, 
+    rgba(192, 57, 43, 0.15) 100%
+  );
+}
+
+.energy-low .energy-icon,
+.energy-low .energy-label {
+  color: #e74c3c;
+}
+
+.energy-glow {
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  right: -1px;
+  bottom: -1px;
+  background: linear-gradient(45deg, 
+    #3498db, 
+    #2980b9
+  );
+  border-radius: 25px;
+  opacity: 0.2;
+  z-index: -1;
+  filter: blur(2px);
 }
 
 .currency-icon {
@@ -1269,101 +1363,34 @@
   filter: blur(2px);
 }
 
-/* Garantir 2 linhas em todas as telas */
-@media (min-width: 769px) {
-  .premium-header {
-    min-height: 120px;
-  }
-  
-  .header-top-row {
-    margin-bottom: 16px;
-  }
-  
-  .header-bottom-row {
-    gap: 30px;
-  }
-  
-  .player-title-badge,
-  .prestige-badge-premium {
-    font-size: 15px;
-    padding: 10px 20px;
-  }
-  
-  .currency-display {
-    padding: 12px 20px;
-  }
-  
-  .currency-amount {
-    font-size: 18px;
-  }
-  
-  .currency-symbol {
-    font-size: 13px;
-  }
-}
-
 /* Responsividade para mobile */
 @media (max-width: 768px) {
   .premium-header {
     padding: 12px;
+    gap: 8px;
   }
   
-  .header-logo {
-    font-size: 20px;
-  }
-  
-  .notification-btn-premium,
-  .language-btn-premium,
-  .settings-btn-premium {
-    width: 40px;
-    height: 40px;
-  }
-  
-  .btn-icon {
-    font-size: 16px;
-  }
-  
-  .player-title-badge,
-  .prestige-badge-premium {
-    font-size: 12px;
-    padding: 6px 12px;
-  }
-  
-  .currency-display {
-    padding: 8px 14px;
-  }
-  
-  .currency-amount {
-    font-size: 14px;
-  }
-  
-  .currency-symbol {
-    font-size: 10px;
-  }
-  
-  /* Mobile: Mais espaço entre logo e botões */
   .header-top-row {
-    justify-content: space-between;
-    gap: 0;
-  }
-  
-  .header-logo {
-    flex: 0 0 auto;
-  }
-  
-  .header-actions {
-    flex: 0 0 auto;
-    margin-left: auto;
-  }
-}
-
-@media (max-width: 480px) {
-  .premium-header {
-    padding: 10px;
+    gap: 6px;
+    flex-wrap: nowrap;
+    justify-content: center;
+    align-items: center;
   }
   
   .header-logo {
     font-size: 18px;
+    flex: 0 0 auto;
+  }
+  
+  .header-energy {
+    flex: 0 0 auto;
+    order: 0;
+  }
+  
+  .header-actions {
+    gap: 4px;
+    flex: 0 0 auto;
+    order: 0;
   }
   
   .notification-btn-premium,
@@ -1378,40 +1405,122 @@
   }
   
   .header-bottom-row {
-    gap: 8px;
+    gap: 6px;
+    flex-wrap: nowrap;
+    justify-content: center;
+    align-items: center;
   }
   
   .player-title-badge,
   .prestige-badge-premium {
     font-size: 11px;
-    padding: 5px 10px;
+    padding: 6px 12px;
+    flex: 0 0 auto;
   }
   
   .currency-display {
     padding: 6px 12px;
+    flex: 0 0 auto;
   }
   
   .currency-amount {
-    font-size: 13px;
+    font-size: 12px;
   }
   
   .currency-symbol {
     font-size: 9px;
   }
   
-  /* Mobile pequeno: Mesmo comportamento */
+  .energy-display {
+    padding: 5px 10px;
+  }
+  
+  .energy-amount {
+    font-size: 11px;
+  }
+  
+  .energy-label {
+    font-size: 7px;
+  }
+}
+
+@media (max-width: 480px) {
+  .premium-header {
+    padding: 8px;
+    gap: 6px;
+  }
+  
   .header-top-row {
-    justify-content: space-between;
-    gap: 0;
+    gap: 4px;
+    flex-wrap: nowrap;
+    justify-content: center;
+    align-items: center;
   }
   
   .header-logo {
+    font-size: 16px;
     flex: 0 0 auto;
   }
   
-  .header-actions {
+  .header-energy {
     flex: 0 0 auto;
-    margin-left: auto;
+    order: 0;
+  }
+  
+  .header-actions {
+    gap: 3px;
+    flex: 0 0 auto;
+    order: 0;
+  }
+  
+  .notification-btn-premium,
+  .language-btn-premium,
+  .settings-btn-premium {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .btn-icon {
+    font-size: 12px;
+  }
+  
+  .header-bottom-row {
+    gap: 4px;
+    flex-wrap: nowrap;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .player-title-badge,
+  .prestige-badge-premium {
+    font-size: 10px;
+    padding: 4px 8px;
+    flex: 0 0 auto;
+  }
+  
+  .currency-display {
+    padding: 4px 8px;
+    flex: 0 0 auto;
+  }
+  
+  .currency-amount {
+    font-size: 11px;
+  }
+  
+  .currency-symbol {
+    font-size: 8px;
+  }
+  
+  .energy-display {
+    padding: 4px 8px;
+  }
+  
+  .energy-amount {
+    font-size: 10px;
+  }
+  
+  .energy-label {
+    font-size: 6px;
   }
 }
 

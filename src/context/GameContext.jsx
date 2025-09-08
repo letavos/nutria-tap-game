@@ -214,6 +214,22 @@ export const INITIAL_STATE = {
       upgrades: 1
     }
   },
+  // Sistema de Energia/Estamina
+  energy: {
+    current: 100,
+    max: 100,
+    lastUpdate: Date.now(),
+    recoveryRate: 1, // energia por minuto
+    clickCost: 1, // energia gasta por clique
+    isRecovering: true
+  },
+  // Sistema Anti-Cheat
+  antiCheat: {
+    lastClickTime: 0,
+    clickCount: 0,
+    maxClicksPerSecond: 10,
+    suspiciousActivity: false
+  },
   // Sistema de Bônus Temporários
   activeBonuses: [],
   // Sistema de Recompensas
@@ -465,6 +481,15 @@ export const GameProvider = ({ children }) => {
     return () => clearTimeout(timeoutId);
   }, [gameState.coins, gameState.level, gameState.achievements.length, JSON.stringify(gameState.customization)]);
 
+  // Sistema de Recuperação de Energia
+  useEffect(() => {
+    const energyInterval = setInterval(() => {
+      updateEnergy();
+    }, 60000); // Atualizar energia a cada minuto
+
+    return () => clearInterval(energyInterval);
+  }, [updateEnergy]);
+
   // Sistema de Auto-Clicker
   useEffect(() => {
     if (gameState.upgrades?.autoClicker?.level > 0 && gameState.upgrades?.autoClicker?.active) {
@@ -603,6 +628,27 @@ export const GameProvider = ({ children }) => {
       return () => clearTimeout(timeoutId);
     }
   }, [JSON.stringify(gameState.customization)]);
+
+  // ===== SISTEMA DE ENERGIA =====
+
+  const updateEnergy = () => {
+    setGameState(prev => {
+      const now = Date.now();
+      const timeDiff = (now - prev.energy.lastUpdate) / 1000 / 60; // minutos
+      const energyToAdd = Math.floor(timeDiff * prev.energy.recoveryRate);
+      const newEnergy = Math.min(prev.energy.max, prev.energy.current + energyToAdd);
+      
+      return {
+        ...prev,
+        energy: {
+          ...prev.energy,
+          current: newEnergy,
+          lastUpdate: now,
+          isRecovering: newEnergy < prev.energy.max
+        }
+      };
+    });
+  };
 
   const updateAchievements = (state) => {
     const unlocked = new Set(state.achievements || []);
@@ -1246,6 +1292,91 @@ export const GameProvider = ({ children }) => {
     setGameState(prev => ({ ...prev, customization: { ...getDefaultCustomization() } }));
   };
 
+  // ===== SISTEMA DE ENERGIA =====
+
+  const canClick = () => {
+    const current = gameState.energy.current;
+    const cost = gameState.energy.clickCost;
+    return current >= cost;
+  };
+
+  const spendEnergy = (amount = gameState.energy.clickCost) => {
+    setGameState(prev => ({
+      ...prev,
+      energy: {
+        ...prev.energy,
+        current: Math.max(0, prev.energy.current - amount)
+      }
+    }));
+  };
+
+  // ===== SISTEMA ANTI-CHEAT =====
+
+  const validateClick = () => {
+    const now = Date.now();
+    const timeDiff = now - gameState.antiCheat.lastClickTime;
+    
+    // Reset contador se passou mais de 1 segundo
+    if (timeDiff >= 1000) {
+      setGameState(prev => ({
+        ...prev,
+        antiCheat: {
+          ...prev.antiCheat,
+          clickCount: 0,
+          lastClickTime: now
+        }
+      }));
+      return true;
+    }
+    
+    // Verificar se excedeu limite de cliques por segundo
+    if (gameState.antiCheat.clickCount >= gameState.antiCheat.maxClicksPerSecond) {
+      setGameState(prev => ({
+        ...prev,
+        antiCheat: {
+          ...prev.antiCheat,
+          suspiciousActivity: true
+        }
+      }));
+      return false;
+    }
+    
+    // Incrementar contador
+    setGameState(prev => ({
+      ...prev,
+      antiCheat: {
+        ...prev.antiCheat,
+        clickCount: prev.antiCheat.clickCount + 1,
+        lastClickTime: now
+      }
+    }));
+    
+    return true;
+  };
+
+  // Função de clique com validação de energia e anti-cheat
+  const clickNutria = () => {
+    // Verificar se tem energia suficiente
+    if (!canClick()) {
+      console.log('Energia insuficiente para clicar');
+      return false;
+    }
+    
+    // Validar contra auto-click
+    if (!validateClick()) {
+      console.log('Clique bloqueado por suspeita de auto-click');
+      return false;
+    }
+    
+    // Gastar energia
+    spendEnergy();
+    
+    // Executar o clique normal
+    addCoins();
+    
+    return true;
+  };
+
   return (
     <GameContext.Provider 
       value={{ 
@@ -1284,6 +1415,13 @@ export const GameProvider = ({ children }) => {
         getEffects,
         getAchievements,
         manualSync,
+        // Sistema de Energia
+        clickNutria,
+        updateEnergy,
+        canClick,
+        spendEnergy,
+        // Sistema Anti-Cheat
+        validateClick
       }}
     >
       {children}

@@ -1530,11 +1530,24 @@ const NutriaGame = () => {
       <div className="premium-header">
         <div className="header-background"></div>
         
-        {/* PRIMEIRA LINHA: Logo + Botões */}
+        {/* PRIMEIRA LINHA: Logo + Energia + Botões */}
         <div className="header-top-row">
           <div className="header-logo">
             <span className="logo-nutria">NUTRIA</span>
             <span className="logo-tap">TAP</span>
+          </div>
+          
+          <div className="header-energy">
+            <div className={`energy-display ${gameState.energy?.current <= 20 ? 'energy-low' : ''}`}>
+              <div className="energy-icon">
+                ⚡
+              </div>
+              <div className="energy-info">
+                <span className="energy-amount">{gameState.energy?.current || 100}/{gameState.energy?.max || 100}</span>
+                <span className="energy-label">ENERGIA</span>
+              </div>
+              <div className="energy-glow"></div>
+            </div>
           </div>
           
           <div className="header-actions">
@@ -1575,7 +1588,7 @@ const NutriaGame = () => {
           </div>
         </div>
 
-        {/* SEGUNDA LINHA: Título, Prestígio e Moedas */}
+        {/* SEGUNDA LINHA: Título + Prestígio + Moedas */}
         <div className="header-bottom-row">
           {equippedTitle && (
             <div className="player-title-badge">
