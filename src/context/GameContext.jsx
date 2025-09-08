@@ -1221,11 +1221,32 @@ export const GameProvider = ({ children }) => {
         return false;
       }
       
-      // 4. Adicionar o usuário atual como referido do dono do código
+      // 4. Buscar referrals atuais do referenciador
+      const { data: currentStats, error: statsError } = await supabase
+        .from('game_stats')
+        .select('referrals')
+        .eq('user_id', referrerUser.id)
+        .single();
+      
+      if (statsError) {
+        console.error('Erro ao buscar stats do referenciador:', statsError);
+        addNotification('Erro ao processar referência. Tente novamente!', 'error');
+        return false;
+      }
+      
+      // 5. Verificar se já foi referenciado por este usuário
+      const currentReferrals = currentStats?.referrals || [];
+      if (currentReferrals.includes(user.id)) {
+        addNotification('Você já foi referenciado por este usuário!', 'warning');
+        return false;
+      }
+      
+      // 6. Adicionar o usuário atual como referido do dono do código
+      const newReferrals = [...currentReferrals, user.id];
       const { error: addReferralError } = await supabase
         .from('game_stats')
         .update({
-          referrals: supabase.raw(`COALESCE(referrals, '[]'::jsonb) || '["${user.id}"]'::jsonb`)
+          referrals: newReferrals
         })
         .eq('user_id', referrerUser.id);
       
@@ -1235,7 +1256,7 @@ export const GameProvider = ({ children }) => {
         return false;
       }
       
-      // 5. Marcar que o usuário atual foi referenciado por este código
+      // 7. Marcar que o usuário atual foi referenciado por este código
       const { error: markReferredError } = await supabase
         .from('users')
         .update({
@@ -1248,7 +1269,7 @@ export const GameProvider = ({ children }) => {
         // Não retorna false aqui, pois o referido já foi adicionado
       }
       
-      // 6. Atualizar estado local
+      // 8. Atualizar estado local
       setGameState(prev => {
         // Adicionar o código usado à lista de códigos utilizados
         const newReferrals = [...prev.referrals, referralCode];
@@ -1273,7 +1294,7 @@ export const GameProvider = ({ children }) => {
         };
       });
       
-      // 7. Mostrar notificação de sucesso
+      // 9. Mostrar notificação de sucesso
       addNotification(`Código de referência adicionado com sucesso! Você foi referenciado por ${referrerUser.username}`, 'success', 5000);
       
       console.log(`Usuário ${user.id} foi adicionado como referido de ${referrerUser.username} (${referralCode})`);
