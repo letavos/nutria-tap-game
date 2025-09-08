@@ -1530,31 +1530,65 @@ const NutriaGame = () => {
       <div className="premium-header">
         <div className="header-background"></div>
         
-        {/* Logo Section */}
-        <div className="header-logo-section">
-          <div className="logo-container">
-            <div className="logo-icon">
-              <span className="logo-nutria">NUTRIA</span>
-              <span className="logo-tap">TAP</span>
-            </div>
-            <div className="logo-glow"></div>
+        {/* PRIMEIRA LINHA: Logo + Botões */}
+        <div className="header-top-row">
+          <div className="header-logo">
+            <span className="logo-nutria">NUTRIA</span>
+            <span className="logo-tap">TAP</span>
+          </div>
+          
+          <div className="header-actions">
+            {notificationPermission !== 'granted' && (
+              <button
+                className="notification-btn-premium"
+                aria-label="Ativar Notificações"
+                onClick={requestNotificationPermission}
+                title="Ativar notificações para recompensas e conquistas"
+              >
+                <div className="btn-icon">
+                  <FaBell />
+                </div>
+                <div className="btn-glow"></div>
+              </button>
+            )}
+            <button
+              className="language-btn-premium"
+              aria-label={t('language')}
+              onClick={() => changeLanguage(language === 'pt' ? 'en' : 'pt')}
+              title={`${t('language')}: ${language === 'pt' ? '🇺🇸 English' : '🇧🇷 Português'}`}
+            >
+              <div className="btn-icon">
+                {language === 'pt' ? '🇺🇸' : '🇧🇷'}
+              </div>
+              <div className="btn-glow"></div>
+            </button>
+            <button
+              className="settings-btn-premium"
+              aria-label={t('settingsLabel')}
+              onClick={() => setShowSettings(true)}
+            >
+              <div className="btn-icon">
+                <FaCog />
+              </div>
+              <div className="btn-glow"></div>
+            </button>
           </div>
         </div>
 
-        {/* Player Info Section */}
-        <div className="header-player-section">
+        {/* SEGUNDA LINHA: Título, Prestígio e Moedas */}
+        <div className="header-bottom-row">
           {equippedTitle && (
             <div className="player-title-badge">
               <div className="title-icon">👑</div>
               <span className="title-text">{titles.find(t => t.id === equippedTitle)?.name || 'Iniciante'}</span>
-        </div>
-        )}
+            </div>
+          )}
           
           {gameState.prestige.level > 0 && (
             <div className="prestige-badge-premium">
               <div className="prestige-icon">
                 <FaStar />
-          </div>
+              </div>
               <div className="prestige-info">
                 <span className="prestige-label">{t('prestige')}</span>
                 <span className="prestige-level">{gameState.prestige.level}</span>
@@ -1562,10 +1596,7 @@ const NutriaGame = () => {
               </div>
             </div>
           )}
-        </div>
-
-        {/* Currency Section */}
-        <div className="header-currency-section">
+          
           <div className="currency-display">
             <div className="currency-icon">
               <FaCoins />
@@ -1577,45 +1608,7 @@ const NutriaGame = () => {
             <div className="currency-glow"></div>
           </div>
         </div>
-
-        {/* Actions Section */}
-        <div className="header-actions-section">
-          {notificationPermission !== 'granted' && (
-          <button
-              className="notification-btn-premium"
-              aria-label="Ativar Notificações"
-              onClick={requestNotificationPermission}
-              title="Ativar notificações para recompensas e conquistas"
-            >
-              <div className="btn-icon">
-                <FaBell />
-              </div>
-              <div className="btn-glow"></div>
-            </button>
-          )}
-          <button
-            className="language-btn-premium"
-            aria-label={t('language')}
-            onClick={() => changeLanguage(language === 'pt' ? 'en' : 'pt')}
-            title={`${t('language')}: ${language === 'pt' ? '🇺🇸 English' : '🇧🇷 Português'}`}
-          >
-            <div className="btn-icon">
-              {language === 'pt' ? '🇺🇸' : '🇧🇷'}
-            </div>
-            <div className="btn-glow"></div>
-          </button>
-          <button
-            className="settings-btn-premium"
-            aria-label={t('settingsLabel')}
-            onClick={() => setShowSettings(true)}
-          >
-            <div className="btn-icon">
-            <FaCog />
-            </div>
-            <div className="btn-glow"></div>
-          </button>
-        </div>
-        </div>
+      </div>
       
       {showSettings && (
         <SettingsModal
