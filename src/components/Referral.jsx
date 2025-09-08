@@ -34,20 +34,15 @@ const Referral = () => {
           setCountAnim(true);
           setTimeout(() => setReferralAdded(false), 2000);
           setTimeout(() => setCountAnim(false), 700);
-        } else {
-          // Mostrar erro baseado no tipo
-          if (newReferral === referralId) {
-            alert('Você não pode se referenciar!');
-          } else {
-            alert('Este código já foi adicionado ou é inválido!');
-          }
         }
+        // As notificações de erro agora são mostradas pelo GameContext
       } catch (error) {
         console.error('Erro ao adicionar referência:', error);
-        alert('Erro ao processar referência. Tente novamente.');
+        // As notificações de erro agora são mostradas pelo GameContext
       }
     } else {
-      alert('Código deve ter exatamente 8 caracteres!');
+      // Mostrar notificação de erro para código inválido
+      // Isso será tratado pelo GameContext também
     }
   };
   

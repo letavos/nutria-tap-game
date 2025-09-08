@@ -18,6 +18,7 @@ import ParticleSystem from './ParticleSystem';
 import VisualFeedback from './VisualFeedback';
 import Collectibles from './Collectibles';
 import DynamicEvents from './DynamicEvents';
+import NotificationContainer from './NotificationContainer';
 import EventsTab from './EventsTab';
 import GuildSystem from './GuildSystem';
 
@@ -1535,7 +1536,7 @@ const NutriaGame = () => {
           <div className="header-logo">
             <span className="logo-nutria">NUTRIA</span>
             <span className="logo-tap">TAP</span>
-          </div>
+        </div>
           
           <div className="header-energy">
             <div className={`energy-display ${gameState.energy?.current <= 20 ? 'energy-low' : ''}`}>
@@ -1572,19 +1573,19 @@ const NutriaGame = () => {
             >
               <div className="btn-icon">
                 {language === 'pt' ? '🇺🇸' : '🇧🇷'}
-              </div>
+          </div>
               <div className="btn-glow"></div>
             </button>
-            <button
+          <button
               className="settings-btn-premium"
               aria-label={t('settingsLabel')}
-              onClick={() => setShowSettings(true)}
-            >
+            onClick={() => setShowSettings(true)}
+          >
               <div className="btn-icon">
-                <FaCog />
+            <FaCog />
               </div>
               <div className="btn-glow"></div>
-            </button>
+          </button>
           </div>
         </div>
 
@@ -1621,7 +1622,7 @@ const NutriaGame = () => {
             <div className="currency-glow"></div>
           </div>
         </div>
-      </div>
+        </div>
       
       {showSettings && (
         <SettingsModal
@@ -1774,6 +1775,9 @@ const NutriaGame = () => {
       {currentTab === 'help' && <HelpModal onClose={() => setCurrentTab('more')} />}
       
       <Onboarding onComplete={() => console.log('Onboarding completed')} />
+      
+      {/* Sistema de Notificações */}
+      <NotificationContainer />
 
     </div>
   );

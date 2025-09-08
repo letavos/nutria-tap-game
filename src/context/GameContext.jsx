@@ -289,6 +289,7 @@ export const GameProvider = ({ children }) => {
   const [levelUpEffect, setLevelUpEffect] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('nutriaTheme') || 'auto');
   const [prestigeMessage, setPrestigeMessage] = useState(null);
+  const [notifications, setNotifications] = useState([]);
   
   // Função para sincronizar dados com Supabase
   const syncToSupabase = async (updatedState) => {
@@ -341,6 +342,35 @@ export const GameProvider = ({ children }) => {
       console.error('Erro ao buscar referral_id do banco:', error);
       return null;
     }
+  };
+
+  // ===== SISTEMA DE NOTIFICAÇÕES =====
+  
+  // Adicionar notificação
+  const addNotification = (message, type = 'info', duration = 3000) => {
+    const id = Date.now() + Math.random();
+    const notification = { id, message, type, duration };
+    
+    setNotifications(prev => [...prev, notification]);
+    
+    // Remover automaticamente após a duração
+    if (duration > 0) {
+      setTimeout(() => {
+        removeNotification(id);
+      }, duration);
+    }
+    
+    return id;
+  };
+
+  // Remover notificação
+  const removeNotification = (id) => {
+    setNotifications(prev => prev.filter(notif => notif.id !== id));
+  };
+
+  // Limpar todas as notificações
+  const clearNotifications = () => {
+    setNotifications([]);
   };
 
   // Inicializar IndexedDB e carregar dados
@@ -1139,14 +1169,22 @@ export const GameProvider = ({ children }) => {
   // Adiciona um referido ao jogador
   // LÓGICA CORRETA: Quando você usa um código de referência, você se torna referido de quem possui esse código
   const addReferral = async (referralCode) => {
+    // Verificar se o código tem 8 caracteres
+    if (!referralCode || referralCode.length !== 8) {
+      addNotification('Código de referência deve ter exatamente 8 caracteres!', 'error');
+      return false;
+    }
+    
     // Verificar se não está tentando se referenciar
     if (referralCode === gameState.referralId) {
-      return false; // Erro: não pode se referenciar
+      addNotification('Você não pode usar seu próprio código de referência!', 'error');
+      return false;
     }
     
     // Verificar se já usou este código
     if (gameState.referrals.includes(referralCode)) {
-      return false; // Erro: código já usado
+      addNotification('Você já usou este código de referência!', 'warning');
+      return false;
     }
     
     try {
@@ -1159,30 +1197,45 @@ export const GameProvider = ({ children }) => {
       
       if (referrerError || !referrerUser) {
         console.error('Código de referência não encontrado:', referrerError);
-        return false; // Erro: código não encontrado
+        addNotification('Código de referência inválido ou não encontrado!', 'error');
+        return false;
       }
       
       // 2. Verificar se o usuário atual está logado
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         console.error('Usuário não está logado');
-        return false; // Erro: usuário não logado
+        addNotification('Você precisa estar logado para usar códigos de referência!', 'error');
+        return false;
       }
       
-      // 3. Adicionar o usuário atual como referido do dono do código
+      // 3. Verificar se já foi referenciado por alguém
+      const { data: currentUser } = await supabase
+        .from('users')
+        .select('referred_by')
+        .eq('id', user.id)
+        .single();
+      
+      if (currentUser?.referred_by) {
+        addNotification('Você já foi referenciado por outro usuário!', 'warning');
+        return false;
+      }
+      
+      // 4. Adicionar o usuário atual como referido do dono do código
       const { error: addReferralError } = await supabase
         .from('game_stats')
         .update({
-          referrals: supabase.raw(`referrals || '["${user.id}"]'::jsonb`)
+          referrals: supabase.raw(`COALESCE(referrals, '[]'::jsonb) || '["${user.id}"]'::jsonb`)
         })
         .eq('user_id', referrerUser.id);
       
       if (addReferralError) {
         console.error('Erro ao adicionar referido:', addReferralError);
-        return false; // Erro: falha ao adicionar referido
+        addNotification('Erro ao processar referência. Tente novamente!', 'error');
+        return false;
       }
       
-      // 4. Marcar que o usuário atual foi referenciado por este código
+      // 5. Marcar que o usuário atual foi referenciado por este código
       const { error: markReferredError } = await supabase
         .from('users')
         .update({
@@ -1195,7 +1248,7 @@ export const GameProvider = ({ children }) => {
         // Não retorna false aqui, pois o referido já foi adicionado
       }
       
-      // 5. Atualizar estado local
+      // 6. Atualizar estado local
       setGameState(prev => {
         // Adicionar o código usado à lista de códigos utilizados
         const newReferrals = [...prev.referrals, referralCode];
@@ -1220,11 +1273,15 @@ export const GameProvider = ({ children }) => {
         };
       });
       
+      // 7. Mostrar notificação de sucesso
+      addNotification(`Código de referência adicionado com sucesso! Você foi referenciado por ${referrerUser.username}`, 'success', 5000);
+      
       console.log(`Usuário ${user.id} foi adicionado como referido de ${referrerUser.username} (${referralCode})`);
       return true; // Sucesso
       
     } catch (error) {
       console.error('Erro na função addReferral:', error);
+      addNotification('Erro ao processar referência. Tente novamente!', 'error');
       return false; // Erro: falha geral
     }
   };
@@ -1434,7 +1491,12 @@ export const GameProvider = ({ children }) => {
         canClick,
         spendEnergy,
         // Sistema Anti-Cheat
-        validateClick
+        validateClick,
+        // Sistema de Notificações
+        notifications,
+        addNotification,
+        removeNotification,
+        clearNotifications
       }}
     >
       {children}

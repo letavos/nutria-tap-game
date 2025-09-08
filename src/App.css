@@ -9486,3 +9486,129 @@ body {
   font-size: 0.9rem;
   font-weight: 500;
 }
+
+/* ===== SISTEMA DE NOTIFICAÇÕES ===== */
+
+.notification-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.game-notification {
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 16px 20px;
+  min-width: 300px;
+  max-width: 400px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transform: translateX(100%);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: auto;
+  position: relative;
+  overflow: hidden;
+}
+
+.game-notification.show {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.game-notification.hide {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.game-notification.success {
+  border-left: 4px solid #27ae60;
+  background: linear-gradient(135deg, rgba(39, 174, 96, 0.1) 0%, rgba(0, 0, 0, 0.9) 100%);
+}
+
+.game-notification.error {
+  border-left: 4px solid #e74c3c;
+  background: linear-gradient(135deg, rgba(231, 76, 60, 0.1) 0%, rgba(0, 0, 0, 0.9) 100%);
+}
+
+.game-notification.warning {
+  border-left: 4px solid #f39c12;
+  background: linear-gradient(135deg, rgba(243, 156, 18, 0.1) 0%, rgba(0, 0, 0, 0.9) 100%);
+}
+
+.game-notification.info {
+  border-left: 4px solid #3498db;
+  background: linear-gradient(135deg, rgba(52, 152, 219, 0.1) 0%, rgba(0, 0, 0, 0.9) 100%);
+}
+
+.notification-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.notification-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.notification-icon.success {
+  color: #27ae60;
+}
+
+.notification-icon.error {
+  color: #e74c3c;
+}
+
+.notification-icon.warning {
+  color: #f39c12;
+}
+
+.notification-icon.info {
+  color: #3498db;
+}
+
+.notification-message {
+  color: #ecf0f1;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  flex: 1;
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  color: #bdc3c7;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.notification-close:hover {
+  color: #ecf0f1;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Responsividade para notificações */
+@media (max-width: 768px) {
+  .notification-container {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+  }
+  
+  .game-notification {
+    min-width: auto;
+    max-width: none;
+  }
+}
