@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import indexedDBManager from '../utils/IndexedDBManager';
 import notificationService from '../services/NotificationService';
 import { v4 as uuidv4 } from 'uuid';
@@ -613,7 +613,7 @@ export const GameProvider = ({ children }) => {
 
   // ===== SISTEMA DE ENERGIA =====
 
-  const updateEnergy = () => {
+  const updateEnergy = useCallback(() => {
     setGameState(prev => {
       const now = Date.now();
       const timeDiff = (now - prev.energy.lastUpdate) / 1000 / 60; // minutos
@@ -630,7 +630,7 @@ export const GameProvider = ({ children }) => {
         }
       };
     });
-  };
+  }, []);
 
   // Salva personalização no localStorage (com debounce para evitar múltiplas chamadas)
   useEffect(() => {
