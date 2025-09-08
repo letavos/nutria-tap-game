@@ -8,7 +8,7 @@ import { useAuth } from './AuthContext';
 const GameContext = createContext();
 
 const MAX_LEVEL = 10;
-const getNutriaImage = (level) => `./src/assets/nutria_${Math.min(level, MAX_LEVEL)}.png`;
+const getNutriaImage = (level) => `/assets/nutria_${Math.min(level, MAX_LEVEL)}.png`;
 const getExpToNextLevel = (level) => Math.floor(100 * Math.pow(level, 1.7));
 
 const getAchievements = (t) => [

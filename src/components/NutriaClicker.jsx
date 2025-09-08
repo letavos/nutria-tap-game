@@ -419,13 +419,13 @@ const NutriaClicker = () => {
         <div className="nutria-glow-effect"></div>
         
         <img
-          src={gameState.nutriaImage || '/src/assets/nutria_1.png'}
+          src={gameState.nutriaImage || '/assets/nutria_1.png'}
           alt="Nutria"
           className={`nutria-img${isFeeding ? ' feeding' : ''}`}
           draggable={false}
           style={{ filter: 'drop-shadow(0 0 24px rgba(255, 224, 102, 0.8))' }}
           onError={(e) => {
-            e.target.src = '/src/assets/nutria_1.png';
+            e.target.src = '/assets/nutria_1.png';
           }}
         />
         

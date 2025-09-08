@@ -12,7 +12,7 @@ const LoadingScreen = ({ loadingProgress, loadingText }) => {
       <div className="loading-content">
         <div className="loading-logo">
           <img 
-            src="./src/assets/nutria-image.png" 
+            src="/assets/nutria-image.png" 
             alt="Nutria Tap Logo" 
             className="loading-image"
           />

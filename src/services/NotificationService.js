@@ -33,8 +33,8 @@ class NotificationService {
     }
 
     const defaultOptions = {
-      icon: '/src/assets/nutria_1.png',
-      badge: '/src/assets/nutria_1.png',
+      icon: '/assets/nutria_1.png',
+      badge: '/assets/nutria_1.png',
       vibrate: [200, 100, 200],
       requireInteraction: false,
       ...options

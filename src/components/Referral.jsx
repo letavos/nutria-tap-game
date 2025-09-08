@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaCopy, FaUserPlus, FaCheck, FaUserCircle, FaUser } from 'react-icons/fa';
+import { FaCopy, FaUserPlus, FaCheck, FaUser } from 'react-icons/fa';
 import { useGame } from '../context/GameContext';
 import { useLanguage } from '../context/LanguageContext';
 

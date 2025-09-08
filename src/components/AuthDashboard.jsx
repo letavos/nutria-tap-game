@@ -563,7 +563,7 @@ const AuthDashboard = () => {
               <div className="referrals-grid">
                 {gameStats.referrals.slice(0, 6).map((ref, index) => (
                   <div key={index} className="referral-item-dashboard">
-                    <FaUserCircle className="referral-item-icon" />
+                    <FaUser className="referral-item-icon" />
                     <span className="referral-item-name">{ref}</span>
                   </div>
                 ))}
