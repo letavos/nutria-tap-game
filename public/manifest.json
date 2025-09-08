@@ -1,0 +1,127 @@
+{
+  "name": "Nutria Tap - Premium Clicker Game",
+  "short_name": "Nutria Tap",
+  "description": "Um jogo clicker premium com sistema de ranking, conquistas e personalização completa",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1c2e",
+  "theme_color": "#3498db",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    {
+      "src": "/src/assets/nutria_1.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/src/assets/nutria_2.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/src/assets/nutria_3.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/src/assets/screenshot1.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Tela principal do jogo"
+    },
+    {
+      "src": "/src/assets/screenshot2.png",
+      "sizes": "750x1334",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Interface mobile"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Jogar",
+      "short_name": "Jogar",
+      "description": "Iniciar o jogo",
+      "url": "/?tab=game",
+      "icons": [
+        {
+          "src": "/src/assets/nutria_1.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Ranking",
+      "short_name": "Ranking",
+      "description": "Ver ranking de jogadores",
+      "url": "/?tab=ranking",
+      "icons": [
+        {
+          "src": "/src/assets/nutria_2.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Perfil",
+      "short_name": "Perfil",
+      "description": "Ver perfil do usuário",
+      "url": "/?tab=profile",
+      "icons": [
+        {
+          "src": "/src/assets/nutria_3.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "handle_links": "preferred",
+  "protocol_handlers": [
+    {
+      "protocol": "web+nutriatap",
+      "url": "/?action=%s"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "/import-save",
+      "accept": {
+        "application/json": [".nutria"]
+      }
+    }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "screenshot",
+          "accept": ["image/png", "image/jpeg"]
+        }
+      ]
+    }
+  }
+}
