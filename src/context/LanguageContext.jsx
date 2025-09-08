@@ -498,7 +498,6 @@ const translations = {
     streaker: 'Streaker',
     streak25: 'Streak 25',
     rich: 'Rico',
-    coins5000: '5000 Moedas',
     upgrader: 'Upgrader',
     referrer: 'Referenciador',
     skinner: 'Skinner',
