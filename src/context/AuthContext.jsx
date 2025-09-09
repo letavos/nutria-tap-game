@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import authService from '../services/AuthService';
 import manualAuthService from '../services/ManualAuthService';
 import supabaseApiService from '../services/SupabaseApiService';
+import { supabase } from '../config/supabase';
 
 const AuthContext = createContext();
 
@@ -21,7 +22,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Inicializar autenticação
+  // Inicializar autenticação e escutar mudanças
   useEffect(() => {
     const initializeAuth = async () => {
       try {
@@ -50,6 +51,40 @@ export const AuthProvider = ({ children }) => {
     };
 
     initializeAuth();
+
+    // Escutar mudanças de autenticação do Supabase
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔄 Auth state changed:', event, session?.user?.id);
+      
+      if (event === 'SIGNED_IN' && session?.user) {
+        console.log('✅ Usuário logado via listener');
+        setUser(session.user);
+        setIsLoggedIn(true);
+        
+        // Carregar perfil
+        try {
+          const profileResult = await authService.getUserProfile();
+          if (profileResult.success) {
+            setProfile(profileResult.profile);
+          }
+        } catch (error) {
+          console.error('Erro ao carregar perfil:', error);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        console.log('❌ Usuário deslogado via listener');
+        setUser(null);
+        setProfile(null);
+        setIsLoggedIn(false);
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        console.log('🔄 Token renovado');
+        setUser(session.user);
+        setIsLoggedIn(true);
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
   // ===== REGISTRO =====

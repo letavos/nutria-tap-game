@@ -643,12 +643,15 @@ export const GameProvider = ({ children }) => {
   useEffect(() => {
     const setupRealtime = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        console.log('❌ Usuário não logado, pulando configuração do Realtime');
+        return;
+      }
 
-      console.log('Configurando Supabase Realtime para usuário:', user.id);
+      console.log('🔌 Configurando Supabase Realtime para usuário:', user.id);
 
       const channel = supabase
-        .channel('game_stats_changes')
+        .channel(`game_stats_changes_${user.id}`)
         .on(
           'postgres_changes',
           { 
@@ -679,7 +682,9 @@ export const GameProvider = ({ children }) => {
             }
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log('📡 Status da conexão Realtime:', status);
+        });
 
       return () => {
         console.log('🔌 Desconectando Supabase Realtime');
@@ -691,7 +696,7 @@ export const GameProvider = ({ children }) => {
     return () => {
       cleanup.then(cleanupFn => cleanupFn && cleanupFn());
     };
-  }, []);
+  }, [user?.id]); // Depende do ID do usuário
 
   // Salva o estado do jogo no IndexedDB e localStorage sempre que ele mudar
   useEffect(() => {
