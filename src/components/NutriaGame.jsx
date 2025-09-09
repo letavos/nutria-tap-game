@@ -19,7 +19,6 @@ import VisualFeedback from './VisualFeedback';
 import Collectibles from './Collectibles';
 import DynamicEvents from './DynamicEvents';
 import NotificationContainer from './NotificationContainer';
-import SyncStatus from './SyncStatus';
 import EventsTab from './EventsTab';
 import GuildSystem from './GuildSystem';
 
@@ -1779,9 +1778,6 @@ const NutriaGame = () => {
       
         {/* Sistema de Notificações */}
         <NotificationContainer />
-        
-        {/* Sistema de Sincronização e Anti-Fraude */}
-        <SyncStatus />
 
     </div>
   );

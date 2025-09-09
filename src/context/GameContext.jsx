@@ -291,8 +291,59 @@ export const GameProvider = ({ children }) => {
   const [prestigeMessage, setPrestigeMessage] = useState(null);
   const [notifications, setNotifications] = useState([]);
   
-  // ===== SISTEMA DE SINCRONIZAÇÃO SIMPLES =====
+  // ===== SISTEMA DE SINCRONIZAÇÃO COM REALTIME =====
   
+  // Configurar Realtime do Supabase
+  useEffect(() => {
+    const setupRealtime = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Assinar mudanças na tabela game_stats
+      const channel = supabase
+        .channel('game_stats_changes')
+        .on(
+          'postgres_changes',
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'game_stats',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Mudança detectada no servidor:', payload);
+            
+            if (payload.eventType === 'UPDATE' && payload.new) {
+              // Atualizar estado local com dados do servidor
+              setGameState(prev => ({
+                ...prev,
+                coins: payload.new.total_coins || prev.coins,
+                level: payload.new.level || prev.level,
+                experience: payload.new.experience || prev.experience,
+                totalClicks: payload.new.total_clicks || prev.totalClicks,
+                streak: payload.new.streak || prev.streak,
+                maxStreak: payload.new.max_streak || prev.maxStreak,
+                achievements: payload.new.achievements || prev.achievements,
+                lastSync: payload.new.last_sync || prev.lastSync
+              }));
+              
+              console.log('Estado atualizado via Realtime');
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    };
+
+    const cleanup = setupRealtime();
+    return () => {
+      cleanup.then(cleanupFn => cleanupFn && cleanupFn());
+    };
+  }, []);
+
   // Função para sincronizar dados com Supabase
   const syncToSupabase = async (updatedState) => {
     try {
