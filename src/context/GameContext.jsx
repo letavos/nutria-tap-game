@@ -307,6 +307,9 @@ export const GameProvider = ({ children }) => {
   const [prestigeMessage, setPrestigeMessage] = useState(null);
   const [notifications, setNotifications] = useState([]);
   
+  // Extrair user do AuthContext
+  const { user } = useAuth();
+  
   // ===== SISTEMA DE SINCRONIZAÇÃO COM REALTIME =====
   
   // Configurar Realtime do Supabase
@@ -377,7 +380,18 @@ export const GameProvider = ({ children }) => {
         max_streak: Math.max(updatedState.streak, updatedState.maxStreak || 0),
         total_achievements: updatedState.achievements.length,
         last_click: new Date().toISOString(),
-        last_sync: new Date().toISOString()
+        last_sync: new Date().toISOString(),
+        // Sincronizar dados completos
+        achievements: updatedState.achievements,
+        prestige: updatedState.prestige,
+        missions: updatedState.missions,
+        dynamic_events: updatedState.dynamicEvents,
+        rewards: updatedState.rewards,
+        active_bonuses: updatedState.activeBonuses,
+        challenges: updatedState.challenges,
+        customization: updatedState.customization,
+        titles: updatedState.titles,
+        equipped_title: updatedState.equippedTitle
       };
 
       const { error } = await supabase
@@ -387,7 +401,7 @@ export const GameProvider = ({ children }) => {
       if (error) {
         console.error('Erro ao sincronizar com Supabase:', error);
       } else {
-        console.log('Dados sincronizados com Supabase:', gameStats);
+        console.log('📊 Dados completos sincronizados com Supabase:', gameStats);
       }
     } catch (error) {
       console.error('Erro na sincronização:', error);
@@ -542,12 +556,16 @@ export const GameProvider = ({ children }) => {
             maxStreak: serverData.max_streak || 0,
             achievements: serverData.achievements || [],
             referralId: referralIdFromDB || INITIAL_STATE.referralId,
-            rewards: savedGameState?.rewards || INITIAL_STATE.rewards,
-            activeBonuses: savedGameState?.activeBonuses || INITIAL_STATE.activeBonuses,
-            prestige: savedGameState?.prestige || INITIAL_STATE.prestige,
-            challenges: savedGameState?.challenges || INITIAL_STATE.challenges,
-            dynamicEvents: savedGameState?.dynamicEvents || INITIAL_STATE.dynamicEvents,
-            customization: loadedCustomization
+            // Carregar dados completos do servidor
+            rewards: serverData.rewards || savedGameState?.rewards || INITIAL_STATE.rewards,
+            activeBonuses: serverData.active_bonuses || savedGameState?.activeBonuses || INITIAL_STATE.activeBonuses,
+            prestige: serverData.prestige || savedGameState?.prestige || INITIAL_STATE.prestige,
+            challenges: serverData.challenges || savedGameState?.challenges || INITIAL_STATE.challenges,
+            dynamicEvents: serverData.dynamic_events || savedGameState?.dynamicEvents || INITIAL_STATE.dynamicEvents,
+            missions: serverData.missions || savedGameState?.missions || INITIAL_STATE.missions,
+            titles: serverData.titles || savedGameState?.titles || INITIAL_STATE.titles,
+            equippedTitle: serverData.equipped_title || savedGameState?.equippedTitle || INITIAL_STATE.equippedTitle,
+            customization: serverData.customization || loadedCustomization
           });
         } else if (savedGameState) {
           // Fallback: usar dados locais se não houver servidor
@@ -666,17 +684,39 @@ export const GameProvider = ({ children }) => {
             if (payload.eventType === 'UPDATE' && payload.new) {
               console.log('📊 Atualizando dados locais com dados do servidor:', payload.new);
               
-              setGameState(prev => ({
-                ...prev,
-                coins: payload.new.total_coins || prev.coins,
-                level: payload.new.level || prev.level,
-                experience: payload.new.experience || prev.experience,
-                totalClicks: payload.new.total_clicks || prev.totalClicks,
-                streak: payload.new.streak || prev.streak,
-                maxStreak: payload.new.max_streak || prev.maxStreak,
-                achievements: payload.new.achievements || prev.achievements,
-                lastSync: payload.new.last_sync || prev.lastSync
-              }));
+              setGameState(prev => {
+                const newState = {
+                  ...prev,
+                  coins: payload.new.total_coins || prev.coins,
+                  level: payload.new.level || prev.level,
+                  experience: payload.new.experience || prev.experience,
+                  totalClicks: payload.new.total_clicks || prev.totalClicks,
+                  streak: payload.new.streak || prev.streak,
+                  maxStreak: payload.new.max_streak || prev.maxStreak,
+                  achievements: payload.new.achievements || prev.achievements,
+                  lastSync: payload.new.last_sync || prev.lastSync,
+                  // Sincronizar dados de prestígio
+                  prestige: payload.new.prestige || prev.prestige,
+                  // Sincronizar dados de missões
+                  missions: payload.new.missions || prev.missions,
+                  // Sincronizar dados de eventos
+                  dynamicEvents: payload.new.dynamic_events || prev.dynamicEvents,
+                  // Sincronizar dados de recompensas
+                  rewards: payload.new.rewards || prev.rewards,
+                  // Sincronizar dados de bônus
+                  activeBonuses: payload.new.active_bonuses || prev.activeBonuses,
+                  // Sincronizar dados de desafios
+                  challenges: payload.new.challenges || prev.challenges,
+                  // Sincronizar dados de personalização
+                  customization: payload.new.customization || prev.customization,
+                  // Sincronizar dados de títulos
+                  titles: payload.new.titles || prev.titles,
+                  equippedTitle: payload.new.equipped_title || prev.equippedTitle
+                };
+                
+                console.log('🔄 Estado completo sincronizado:', newState);
+                return newState;
+              });
               
               console.log('✅ Estado atualizado via Realtime');
             }
@@ -705,7 +745,7 @@ export const GameProvider = ({ children }) => {
         console.log('Salvando gameState completo:', gameState);
         
         // Salvar no localStorage como backup
-        localStorage.setItem('nutriaGameState', JSON.stringify(gameState));
+      localStorage.setItem('nutriaGameState', JSON.stringify(gameState));
         
         // Salvar no IndexedDB (dados limpos)
         try {
