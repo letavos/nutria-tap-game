@@ -506,6 +506,35 @@ export const GameProvider = ({ children }) => {
       console.error('Erro ao carregar dados do servidor:', error);
     }
   };
+
+  // Função para carregar dados do servidor e retornar os dados
+  const loadFromServerAndReturn = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data: serverData, error } = await supabase
+        .from('game_stats')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Erro ao carregar dados do servidor:', error);
+        return null;
+      }
+
+      if (serverData) {
+        console.log('Dados do servidor carregados com sucesso:', serverData);
+        return serverData;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Erro ao carregar dados do servidor:', error);
+      return null;
+    }
+  };
   
   // Função para sincronizar dados com Supabase
   const syncToSupabase = async (updatedState) => {
@@ -616,8 +645,9 @@ export const GameProvider = ({ children }) => {
         }
         
         // ===== SISTEMA ANTI-FRAUDE: SERVIDOR COMO FONTE DA VERDADE =====
-        // 1. Carregar dados do servidor primeiro
-        await loadFromServer();
+        // 1. Carregar dados do servidor primeiro e aplicar ao estado
+        const serverData = await loadFromServerAndReturn();
+        console.log('Dados do servidor carregados:', serverData);
         
         // 2. Carregar dados locais como backup
         const savedGameState = await indexedDBManager.loadGameData();
@@ -625,12 +655,13 @@ export const GameProvider = ({ children }) => {
           console.log('Estado do jogo carregado do IndexedDB:', savedGameState);
           
           // Validar dados locais contra servidor
-          const validation = validateDataIntegrity(savedGameState, gameState);
+          const validation = validateDataIntegrity(savedGameState, serverData);
           
           if (validation.isValid) {
             // Merge apenas se dados locais forem válidos
             setGameState(prev => ({
               ...prev,
+              ...serverData,
               ...savedGameState,
               referralId: referralIdFromDB || savedGameState.referralId || prev.referralId,
               rewards: savedGameState.rewards || prev.rewards,
@@ -649,6 +680,7 @@ export const GameProvider = ({ children }) => {
             // Usar apenas dados do servidor + configurações
             setGameState(prev => ({
               ...prev,
+              ...serverData,
               referralId: referralIdFromDB || prev.referralId,
               customization: loadedCustomization
             }));
@@ -661,12 +693,13 @@ export const GameProvider = ({ children }) => {
             console.log('Estado do jogo carregado do localStorage:', parsedState);
             
             // Validar dados locais contra servidor
-            const validation = validateDataIntegrity(parsedState, gameState);
+            const validation = validateDataIntegrity(parsedState, serverData);
             
             if (validation.isValid) {
               // Merge apenas se dados locais forem válidos
               const finalState = {
                 ...INITIAL_STATE,
+                ...serverData,
                 ...parsedState,
                 referralId: referralIdFromDB || parsedState.referralId || INITIAL_STATE.referralId,
                 rewards: parsedState.rewards || INITIAL_STATE.rewards,
@@ -693,6 +726,7 @@ export const GameProvider = ({ children }) => {
               // Usar apenas dados do servidor + configurações
               setGameState(prev => ({
                 ...prev,
+                ...serverData,
                 referralId: referralIdFromDB || prev.referralId,
                 customization: loadedCustomization
               }));
@@ -702,6 +736,7 @@ export const GameProvider = ({ children }) => {
             const finalReferralId = referralIdFromDB || uuidv4().substring(0, 8);
             setGameState(prev => ({
               ...prev,
+              ...serverData,
               referralId: finalReferralId,
               customization: loadedCustomization
             }));
@@ -727,12 +762,13 @@ export const GameProvider = ({ children }) => {
           const parsedState = JSON.parse(savedState);
           
           // Validar dados locais contra servidor
-          const validation = validateDataIntegrity(parsedState, gameState);
+          const validation = validateDataIntegrity(parsedState, serverData);
           
           if (validation.isValid) {
             // Merge apenas se dados locais forem válidos
             setGameState(prev => ({
               ...prev,
+              ...serverData,
               ...parsedState,
               referralId: referralIdFromDB || parsedState.referralId || prev.referralId,
               rewards: parsedState.rewards || prev.rewards,
@@ -751,6 +787,7 @@ export const GameProvider = ({ children }) => {
             // Usar apenas dados do servidor + configurações
             setGameState(prev => ({
               ...prev,
+              ...serverData,
               referralId: referralIdFromDB || prev.referralId,
               customization: loadedCustomization
             }));
@@ -759,6 +796,7 @@ export const GameProvider = ({ children }) => {
           const finalReferralId = referralIdFromDB || uuidv4().substring(0, 8);
           setGameState(prev => ({
             ...prev,
+            ...serverData,
             referralId: finalReferralId,
             customization: loadedCustomization
           }));
@@ -785,7 +823,7 @@ export const GameProvider = ({ children }) => {
         }
         
         // Salvar no localStorage como backup
-        localStorage.setItem('nutriaGameState', JSON.stringify(gameState));
+      localStorage.setItem('nutriaGameState', JSON.stringify(gameState));
         
         // Salvar no IndexedDB
         try {
@@ -1823,6 +1861,7 @@ export const GameProvider = ({ children }) => {
         syncWithServer,
         saveToServer,
         loadFromServer,
+        loadFromServerAndReturn,
         validateDataIntegrity
       }}
     >
