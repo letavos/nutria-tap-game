@@ -694,8 +694,8 @@ export const GameProvider = ({ children }) => {
           }
         }
         
-        // ===== SISTEMA ANTI-FRAUDE: SERVIDOR COMO FONTE DA VERDADE =====
-        // 1. Carregar dados do servidor primeiro e aplicar ao estado
+        // ===== SISTEMA OFFLINE-FIRST COM SINCRONIZAÇÃO SEGURA =====
+        // 1. Carregar dados do servidor primeiro
         const serverData = await loadFromServerAndReturn();
         console.log('Dados do servidor carregados:', serverData);
         
@@ -704,14 +704,43 @@ export const GameProvider = ({ children }) => {
         if (savedGameState) {
           console.log('Estado do jogo carregado do IndexedDB:', savedGameState);
           
-          // Validar dados locais contra servidor
-          const validation = validateDataIntegrity(savedGameState, serverData);
-          
-          if (validation.isValid) {
-            // Merge apenas se dados locais forem válidos
+          // Se há dados do servidor, usar como base e mergear dados locais válidos
+          if (serverData) {
+            // Validar dados locais contra servidor
+            const validation = validateDataIntegrity(savedGameState, serverData);
+            
+            if (validation.isValid) {
+              // Merge: servidor + dados locais válidos
+              setGameState(prev => ({
+                ...prev,
+                ...serverData,
+                ...savedGameState,
+                referralId: referralIdFromDB || savedGameState.referralId || prev.referralId,
+                rewards: savedGameState.rewards || prev.rewards,
+                activeBonuses: savedGameState.activeBonuses || prev.activeBonuses,
+                prestige: savedGameState.prestige || prev.prestige,
+                challenges: savedGameState.challenges || prev.challenges,
+                dynamicEvents: savedGameState.dynamicEvents || prev.dynamicEvents,
+                customization: loadedCustomization,
+                lastSyncTimestamp: prev.lastSyncTimestamp || Date.now()
+              }));
+              console.log('Dados locais validados e carregados com sucesso');
+            } else {
+              console.warn('Dados locais suspeitos detectados e ignorados:', validation.issues);
+              addNotification('Dados locais suspeitos detectados e ignorados!', 'warning');
+              
+              // Usar apenas dados do servidor + configurações
+              setGameState(prev => ({
+                ...prev,
+                ...serverData,
+                referralId: referralIdFromDB || prev.referralId,
+                customization: loadedCustomization
+              }));
+            }
+          } else {
+            // Se não há dados do servidor, usar dados locais
             setGameState(prev => ({
               ...prev,
-              ...serverData,
               ...savedGameState,
               referralId: referralIdFromDB || savedGameState.referralId || prev.referralId,
               rewards: savedGameState.rewards || prev.rewards,
@@ -722,65 +751,71 @@ export const GameProvider = ({ children }) => {
               customization: loadedCustomization,
               lastSyncTimestamp: prev.lastSyncTimestamp || Date.now()
             }));
-            console.log('Dados locais validados e carregados com sucesso');
-          } else {
-            console.warn('Dados locais suspeitos detectados e ignorados:', validation.issues);
-            addNotification('Dados locais suspeitos detectados e ignorados!', 'warning');
-            
-            // Usar apenas dados do servidor + configurações
-            setGameState(prev => ({
-              ...prev,
-              ...serverData,
-              referralId: referralIdFromDB || prev.referralId,
-              customization: loadedCustomization
-            }));
+            console.log('Dados locais carregados (sem servidor)');
           }
         } else {
           // Fallback para localStorage com validação
-    const savedState = localStorage.getItem('nutriaGameState');
-    if (savedState) {
+          const savedState = localStorage.getItem('nutriaGameState');
+          if (savedState) {
             const parsedState = JSON.parse(savedState);
             console.log('Estado do jogo carregado do localStorage:', parsedState);
             
-            // Validar dados locais contra servidor
-            const validation = validateDataIntegrity(parsedState, serverData);
-            
-            if (validation.isValid) {
-              // Merge apenas se dados locais forem válidos
-              const finalState = {
-                ...INITIAL_STATE,
-                ...serverData,
-                ...parsedState,
-                referralId: referralIdFromDB || parsedState.referralId || INITIAL_STATE.referralId,
-                rewards: parsedState.rewards || INITIAL_STATE.rewards,
-                activeBonuses: parsedState.activeBonuses || INITIAL_STATE.activeBonuses,
-                prestige: parsedState.prestige || INITIAL_STATE.prestige,
-                challenges: parsedState.challenges || INITIAL_STATE.challenges,
-                dynamicEvents: parsedState.dynamicEvents || INITIAL_STATE.dynamicEvents,
-                customization: loadedCustomization,
-                lastSyncTimestamp: Date.now()
-              };
+            // Se há dados do servidor, validar contra eles
+            if (serverData) {
+              const validation = validateDataIntegrity(parsedState, serverData);
               
+              if (validation.isValid) {
+                // Merge: servidor + dados locais válidos
+                const finalState = {
+                  ...INITIAL_STATE,
+                  ...serverData,
+                  ...parsedState,
+                  referralId: referralIdFromDB || parsedState.referralId || INITIAL_STATE.referralId,
+                  rewards: parsedState.rewards || INITIAL_STATE.rewards,
+                  activeBonuses: parsedState.activeBonuses || INITIAL_STATE.activeBonuses,
+                  prestige: parsedState.prestige || INITIAL_STATE.prestige,
+                  challenges: parsedState.challenges || INITIAL_STATE.challenges,
+                  dynamicEvents: parsedState.dynamicEvents || INITIAL_STATE.dynamicEvents,
+                  customization: loadedCustomization,
+                  lastSyncTimestamp: Date.now()
+                };
+                
+                setGameState(prev => ({
+                  ...prev,
+                  ...finalState
+                }));
+                
+                // Migrar para IndexedDB
+                await indexedDBManager.saveGameData(finalState);
+                console.log('Dados locais validados e carregados com sucesso');
+              } else {
+                console.warn('Dados locais suspeitos detectados e ignorados:', validation.issues);
+                addNotification('Dados locais suspeitos detectados e ignorados!', 'warning');
+                
+                // Usar apenas dados do servidor + configurações
+                setGameState(prev => ({
+                  ...prev,
+                  ...serverData,
+                  referralId: referralIdFromDB || prev.referralId,
+                  customization: loadedCustomization
+                }));
+              }
+            } else {
+              // Se não há dados do servidor, usar dados locais
               setGameState(prev => ({
                 ...prev,
-                ...finalState
+                ...parsedState,
+                referralId: referralIdFromDB || parsedState.referralId || prev.referralId,
+                rewards: parsedState.rewards || prev.rewards,
+                activeBonuses: parsedState.activeBonuses || prev.activeBonuses,
+                prestige: parsedState.prestige || prev.prestige,
+                challenges: parsedState.challenges || prev.challenges,
+                dynamicEvents: parsedState.dynamicEvents || prev.dynamicEvents,
+                customization: loadedCustomization,
+                lastSyncTimestamp: prev.lastSyncTimestamp || Date.now()
               }));
-              
-              // Migrar para IndexedDB
-              await indexedDBManager.saveGameData(finalState);
-              console.log('Dados locais validados e carregados com sucesso');
-    } else {
-              console.warn('Dados locais suspeitos detectados e ignorados:', validation.issues);
-              addNotification('Dados locais suspeitos detectados e ignorados!', 'warning');
-              
-              // Usar apenas dados do servidor + configurações
-      setGameState(prev => ({
-        ...prev,
-                ...serverData,
-                referralId: referralIdFromDB || prev.referralId,
-                customization: loadedCustomization
-      }));
-    }
+              console.log('Dados locais carregados (sem servidor)');
+            }
           } else {
             // Se não existir estado salvo, usa o ID do banco ou gera um novo
             const finalReferralId = referralIdFromDB || uuidv4().substring(0, 8);
@@ -811,14 +846,42 @@ export const GameProvider = ({ children }) => {
         if (savedState) {
           const parsedState = JSON.parse(savedState);
           
-          // Validar dados locais contra servidor
-          const validation = validateDataIntegrity(parsedState, serverData);
-          
-          if (validation.isValid) {
-            // Merge apenas se dados locais forem válidos
+          // Se há dados do servidor, validar contra eles
+          if (serverData) {
+            const validation = validateDataIntegrity(parsedState, serverData);
+            
+            if (validation.isValid) {
+              // Merge: servidor + dados locais válidos
+              setGameState(prev => ({
+                ...prev,
+                ...serverData,
+                ...parsedState,
+                referralId: referralIdFromDB || parsedState.referralId || prev.referralId,
+                rewards: parsedState.rewards || prev.rewards,
+                activeBonuses: parsedState.activeBonuses || prev.activeBonuses,
+                prestige: parsedState.prestige || prev.prestige,
+                challenges: parsedState.challenges || prev.challenges,
+                dynamicEvents: parsedState.dynamicEvents || prev.dynamicEvents,
+                customization: loadedCustomization,
+                lastSyncTimestamp: prev.lastSyncTimestamp || Date.now()
+              }));
+              console.log('Dados locais validados e carregados com sucesso');
+            } else {
+              console.warn('Dados locais suspeitos detectados e ignorados:', validation.issues);
+              addNotification('Dados locais suspeitos detectados e ignorados!', 'warning');
+              
+              // Usar apenas dados do servidor + configurações
+              setGameState(prev => ({
+                ...prev,
+                ...serverData,
+                referralId: referralIdFromDB || prev.referralId,
+                customization: loadedCustomization
+              }));
+            }
+          } else {
+            // Se não há dados do servidor, usar dados locais
             setGameState(prev => ({
               ...prev,
-              ...serverData,
               ...parsedState,
               referralId: referralIdFromDB || parsedState.referralId || prev.referralId,
               rewards: parsedState.rewards || prev.rewards,
@@ -829,18 +892,7 @@ export const GameProvider = ({ children }) => {
               customization: loadedCustomization,
               lastSyncTimestamp: prev.lastSyncTimestamp || Date.now()
             }));
-            console.log('Dados locais validados e carregados com sucesso');
-          } else {
-            console.warn('Dados locais suspeitos detectados e ignorados:', validation.issues);
-            addNotification('Dados locais suspeitos detectados e ignorados!', 'warning');
-            
-            // Usar apenas dados do servidor + configurações
-            setGameState(prev => ({
-              ...prev,
-              ...serverData,
-              referralId: referralIdFromDB || prev.referralId,
-              customization: loadedCustomization
-            }));
+            console.log('Dados locais carregados (sem servidor)');
           }
         } else {
           const finalReferralId = referralIdFromDB || uuidv4().substring(0, 8);
@@ -857,6 +909,33 @@ export const GameProvider = ({ children }) => {
     initializeGame();
   }, []);
 
+  // Função para limpar dados antes de salvar (remover funções e objetos não serializáveis)
+  const cleanDataForStorage = (data) => {
+    const cleaned = JSON.parse(JSON.stringify(data, (key, value) => {
+      // Remover funções e objetos não serializáveis
+      if (typeof value === 'function') {
+        return undefined;
+      }
+      if (value instanceof Date) {
+        return value.toISOString();
+      }
+      if (value instanceof RegExp) {
+        return value.toString();
+      }
+      if (value instanceof Error) {
+        return { message: value.message, stack: value.stack };
+      }
+      return value;
+    }));
+    
+    // Remover propriedades específicas que podem causar problemas
+    delete cleaned.lastSyncTimestamp;
+    delete cleaned.isDataValidated;
+    delete cleaned.fraudDetection;
+    
+    return cleaned;
+  };
+
   // Salva o estado do jogo no IndexedDB e localStorage (SEM salvar no servidor automaticamente)
   useEffect(() => {
     const timeoutId = setTimeout(async () => {
@@ -864,12 +943,15 @@ export const GameProvider = ({ children }) => {
       if (gameState.coins > 0 || gameState.level > 1 || gameState.achievements.length > 0) {
         console.log('Salvando gameState local:', gameState);
         
+        // Limpar dados antes de salvar
+        const cleanedData = cleanDataForStorage(gameState);
+        
         // Salvar no localStorage como backup
-        localStorage.setItem('nutriaGameState', JSON.stringify(gameState));
+        localStorage.setItem('nutriaGameState', JSON.stringify(cleanedData));
         
         // Salvar no IndexedDB
         try {
-          await indexedDBManager.saveGameData(gameState);
+          await indexedDBManager.saveGameData(cleanedData);
           console.log('Dados salvos no IndexedDB com sucesso');
         } catch (error) {
           console.error('Erro ao salvar no IndexedDB:', error);
