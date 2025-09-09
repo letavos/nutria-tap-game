@@ -291,300 +291,7 @@ export const GameProvider = ({ children }) => {
   const [prestigeMessage, setPrestigeMessage] = useState(null);
   const [notifications, setNotifications] = useState([]);
   
-  // ===== SISTEMA ANTI-FRAUDE E SINCRONIZAÇÃO =====
-  const [lastSyncTimestamp, setLastSyncTimestamp] = useState(null);
-  const [isDataValidated, setIsDataValidated] = useState(false);
-  const [fraudDetection, setFraudDetection] = useState({
-    suspiciousActivity: false,
-    dataIntegrity: true,
-    lastValidation: null
-  });
-
-  // Função para validar integridade dos dados
-  const validateDataIntegrity = (localData, serverData) => {
-    if (!serverData) return { isValid: true, localData };
-    
-    const validation = {
-      isValid: true,
-      issues: [],
-      correctedData: { ...localData }
-    };
-
-    // Validar pontos (não pode ser maior que o servidor + margem de erro)
-    const maxPointsAllowed = serverData.total_coins + 1000; // Margem de 1000 pontos
-    if (localData.coins > maxPointsAllowed) {
-      validation.isValid = false;
-      validation.issues.push('Pontos suspeitos detectados');
-      validation.correctedData.coins = serverData.total_coins;
-    }
-
-    // Validar nível (não pode ser maior que o servidor + 1)
-    if (localData.level > serverData.level + 1) {
-      validation.isValid = false;
-      validation.issues.push('Nível suspeito detectado');
-      validation.correctedData.level = serverData.level;
-    }
-
-    // Validar conquistas (não pode ter conquistas que o servidor não tem)
-    const serverAchievements = serverData.achievements || [];
-    const localAchievements = localData.achievements || [];
-    const invalidAchievements = localAchievements.filter(ach => !serverAchievements.includes(ach));
-    
-    if (invalidAchievements.length > 0) {
-      validation.isValid = false;
-      validation.issues.push('Conquistas suspeitas detectadas');
-      validation.correctedData.achievements = serverAchievements;
-    }
-
-    // Validar missões (progresso não pode ser maior que o servidor + margem)
-    if (serverData.missions) {
-      const serverMissions = serverData.missions;
-      const localMissions = localData.missions || {};
-      
-      Object.keys(serverMissions).forEach(category => {
-        if (localMissions[category]) {
-          serverMissions[category].forEach(serverMission => {
-            const localMission = localMissions[category].find(m => m.id === serverMission.id);
-            if (localMission && localMission.progress > serverMission.progress + 10) {
-              validation.isValid = false;
-              validation.issues.push(`Missão ${serverMission.id} suspeita`);
-              localMission.progress = serverMission.progress;
-            }
-          });
-        }
-      });
-    }
-
-    return validation;
-  };
-
-  // Função para sincronizar dados com servidor
-  const syncWithServer = async (forceSync = false) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Buscar dados do servidor
-      const { data: serverData, error } = await supabase
-        .from('game_stats')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error) {
-        console.error('Erro ao buscar dados do servidor:', error);
-        return;
-      }
-
-      if (!serverData) {
-        console.log('Usuário não encontrado no servidor, criando dados iniciais');
-        await createInitialStats();
-        return;
-      }
-
-      // Validar integridade dos dados locais
-      const validation = validateDataIntegrity(gameState, serverData);
-      
-      if (!validation.isValid) {
-        console.warn('Dados suspeitos detectados:', validation.issues);
-        setFraudDetection(prev => ({
-          ...prev,
-          suspiciousActivity: true,
-          dataIntegrity: false,
-          lastValidation: Date.now()
-        }));
-
-        // Corrigir dados locais com dados do servidor
-        setGameState(prev => ({
-          ...prev,
-          ...validation.correctedData,
-          lastSyncTimestamp: Date.now()
-        }));
-
-        addNotification('Dados suspeitos detectados e corrigidos automaticamente!', 'warning', 5000);
-        return;
-      }
-
-      // Merge inteligente: servidor + mudanças locais não sincronizadas
-      const mergedData = {
-        ...serverData,
-        ...gameState,
-        lastSyncTimestamp: Date.now()
-      };
-
-      // Atualizar estado local com dados validados
-      setGameState(prev => ({
-        ...prev,
-        ...mergedData,
-        lastSyncTimestamp: Date.now()
-      }));
-
-      setLastSyncTimestamp(Date.now());
-      setIsDataValidated(true);
-      setFraudDetection(prev => ({
-        ...prev,
-        suspiciousActivity: false,
-        dataIntegrity: true,
-        lastValidation: Date.now()
-      }));
-
-      console.log('Dados sincronizados com servidor com sucesso');
-
-    } catch (error) {
-      console.error('Erro na sincronização:', error);
-      addNotification('Erro ao sincronizar dados com servidor!', 'error');
-    }
-  };
-
-  // Função para salvar dados no servidor (com validação)
-  const saveToServer = async (dataToSave) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return false;
-
-      // Buscar dados atuais do servidor para comparação
-      const { data: currentServerData, error: fetchError } = await supabase
-        .from('game_stats')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        console.error('Erro ao buscar dados do servidor:', fetchError);
-        return false;
-      }
-
-      // Se não há dados no servidor, criar novos
-      if (!currentServerData) {
-        const { error: insertError } = await supabase
-          .from('game_stats')
-          .insert({
-            user_id: user.id,
-            total_coins: dataToSave.coins || 0,
-            total_clicks: dataToSave.totalClicks || 0,
-            level: dataToSave.level || 1,
-            experience: dataToSave.experience || 0,
-            prestige_level: dataToSave.prestige?.level || 0,
-            streak: dataToSave.streak || 0,
-            max_streak: dataToSave.maxStreak || 0,
-            total_achievements: dataToSave.achievements?.length || 0,
-            last_click: new Date().toISOString(),
-            last_sync: new Date().toISOString()
-          });
-
-        if (insertError) {
-          console.error('Erro ao inserir dados no servidor:', insertError);
-          return false;
-        }
-
-        console.log('Dados iniciais criados no servidor');
-        return true;
-      }
-
-      // Validar dados antes de salvar (só se houver dados no servidor)
-      const validation = validateDataIntegrity(dataToSave, currentServerData);
-      if (!validation.isValid) {
-        console.warn('Tentativa de salvar dados suspeitos bloqueada:', validation.issues);
-        addNotification('Tentativa de fraude detectada e bloqueada!', 'error');
-        return false;
-      }
-
-      // Salvar no servidor apenas se os dados forem válidos
-      const { error } = await supabase
-        .from('game_stats')
-        .update({
-          total_coins: dataToSave.coins || 0,
-          total_clicks: dataToSave.totalClicks || 0,
-          level: dataToSave.level || 1,
-          experience: dataToSave.experience || 0,
-          prestige_level: dataToSave.prestige?.level || 0,
-          streak: dataToSave.streak || 0,
-          max_streak: dataToSave.maxStreak || 0,
-          total_achievements: dataToSave.achievements?.length || 0,
-          last_click: new Date().toISOString(),
-          last_sync: new Date().toISOString()
-        })
-        .eq('user_id', user.id);
-
-      if (error) {
-        console.error('Erro ao salvar no servidor:', error);
-        addNotification('Erro ao salvar dados no servidor!', 'error');
-        return false;
-      }
-
-      console.log('Dados salvos no servidor com sucesso');
-      return true;
-
-    } catch (error) {
-      console.error('Erro ao salvar no servidor:', error);
-      addNotification('Erro ao salvar dados no servidor!', 'error');
-      return false;
-    }
-  };
-
-  // Função para carregar dados do servidor (prioridade)
-  const loadFromServer = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: serverData, error } = await supabase
-        .from('game_stats')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error) {
-        console.error('Erro ao carregar dados do servidor:', error);
-        return;
-      }
-
-      if (serverData) {
-        // Servidor como fonte da verdade
-        setGameState(prev => ({
-          ...prev,
-          ...serverData,
-          lastSyncTimestamp: Date.now()
-        }));
-
-        setLastSyncTimestamp(Date.now());
-        setIsDataValidated(true);
-        console.log('Dados carregados do servidor com sucesso');
-      }
-
-    } catch (error) {
-      console.error('Erro ao carregar dados do servidor:', error);
-    }
-  };
-
-  // Função para carregar dados do servidor e retornar os dados
-  const loadFromServerAndReturn = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-
-      const { data: serverData, error } = await supabase
-        .from('game_stats')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error) {
-        console.error('Erro ao carregar dados do servidor:', error);
-        return null;
-      }
-
-      if (serverData) {
-        console.log('Dados do servidor carregados com sucesso:', serverData);
-        return serverData;
-      }
-
-      return null;
-    } catch (error) {
-      console.error('Erro ao carregar dados do servidor:', error);
-      return null;
-    }
-  };
+  // ===== SISTEMA DE SINCRONIZAÇÃO SIMPLES =====
   
   // Função para sincronizar dados com Supabase
   const syncToSupabase = async (updatedState) => {
@@ -694,138 +401,53 @@ export const GameProvider = ({ children }) => {
           }
         }
         
-        // ===== SISTEMA OFFLINE-FIRST COM SINCRONIZAÇÃO SEGURA =====
-        // 1. Carregar dados do servidor primeiro
-        const serverData = await loadFromServerAndReturn();
-        console.log('Dados do servidor carregados:', serverData);
-        
-        // 2. Carregar dados locais como backup
+        // ===== SISTEMA ORIGINAL QUE FUNCIONAVA =====
+        // Tentar carregar do IndexedDB primeiro
         const savedGameState = await indexedDBManager.loadGameData();
         if (savedGameState) {
           console.log('Estado do jogo carregado do IndexedDB:', savedGameState);
-          
-          // Se há dados do servidor, usar como base e mergear dados locais válidos
-          if (serverData) {
-            // Validar dados locais contra servidor
-            const validation = validateDataIntegrity(savedGameState, serverData);
-            
-            if (validation.isValid) {
-              // Merge: servidor + dados locais válidos
-              setGameState(prev => ({
-                ...prev,
-                ...serverData,
-                ...savedGameState,
-                referralId: referralIdFromDB || savedGameState.referralId || prev.referralId,
-                rewards: savedGameState.rewards || prev.rewards,
-                activeBonuses: savedGameState.activeBonuses || prev.activeBonuses,
-                prestige: savedGameState.prestige || prev.prestige,
-                challenges: savedGameState.challenges || prev.challenges,
-                dynamicEvents: savedGameState.dynamicEvents || prev.dynamicEvents,
-                customization: loadedCustomization,
-                lastSyncTimestamp: prev.lastSyncTimestamp || Date.now()
-              }));
-              console.log('Dados locais validados e carregados com sucesso');
-            } else {
-              console.warn('Dados locais suspeitos detectados e ignorados:', validation.issues);
-              addNotification('Dados locais suspeitos detectados e ignorados!', 'warning');
-              
-              // Usar apenas dados do servidor + configurações
-              setGameState(prev => ({
-                ...prev,
-                ...serverData,
-                referralId: referralIdFromDB || prev.referralId,
-                customization: loadedCustomization
-              }));
-            }
-          } else {
-            // Se não há dados do servidor, usar dados locais
-            setGameState(prev => ({
-              ...prev,
-              ...savedGameState,
-              referralId: referralIdFromDB || savedGameState.referralId || prev.referralId,
-              rewards: savedGameState.rewards || prev.rewards,
-              activeBonuses: savedGameState.activeBonuses || prev.activeBonuses,
-              prestige: savedGameState.prestige || prev.prestige,
-              challenges: savedGameState.challenges || prev.challenges,
-              dynamicEvents: savedGameState.dynamicEvents || prev.dynamicEvents,
-              customization: loadedCustomization,
-              lastSyncTimestamp: prev.lastSyncTimestamp || Date.now()
-            }));
-            console.log('Dados locais carregados (sem servidor)');
-          }
+          setGameState({
+            ...INITIAL_STATE,
+            ...savedGameState,
+            referralId: referralIdFromDB || savedGameState.referralId || INITIAL_STATE.referralId,
+            rewards: savedGameState.rewards || INITIAL_STATE.rewards,
+            activeBonuses: savedGameState.activeBonuses || INITIAL_STATE.activeBonuses,
+            prestige: savedGameState.prestige || INITIAL_STATE.prestige,
+            challenges: savedGameState.challenges || INITIAL_STATE.challenges,
+            dynamicEvents: savedGameState.dynamicEvents || INITIAL_STATE.dynamicEvents,
+            customization: loadedCustomization
+          });
         } else {
-          // Fallback para localStorage com validação
-          const savedState = localStorage.getItem('nutriaGameState');
-          if (savedState) {
+          // Fallback para localStorage
+    const savedState = localStorage.getItem('nutriaGameState');
+    if (savedState) {
             const parsedState = JSON.parse(savedState);
             console.log('Estado do jogo carregado do localStorage:', parsedState);
             
-            // Se há dados do servidor, validar contra eles
-            if (serverData) {
-              const validation = validateDataIntegrity(parsedState, serverData);
-              
-              if (validation.isValid) {
-                // Merge: servidor + dados locais válidos
-                const finalState = {
-                  ...INITIAL_STATE,
-                  ...serverData,
-                  ...parsedState,
-                  referralId: referralIdFromDB || parsedState.referralId || INITIAL_STATE.referralId,
-                  rewards: parsedState.rewards || INITIAL_STATE.rewards,
-                  activeBonuses: parsedState.activeBonuses || INITIAL_STATE.activeBonuses,
-                  prestige: parsedState.prestige || INITIAL_STATE.prestige,
-                  challenges: parsedState.challenges || INITIAL_STATE.challenges,
-                  dynamicEvents: parsedState.dynamicEvents || INITIAL_STATE.dynamicEvents,
-                  customization: loadedCustomization,
-                  lastSyncTimestamp: Date.now()
-                };
-                
-                setGameState(prev => ({
-                  ...prev,
-                  ...finalState
-                }));
-                
-                // Migrar para IndexedDB
-                await indexedDBManager.saveGameData(finalState);
-                console.log('Dados locais validados e carregados com sucesso');
-              } else {
-                console.warn('Dados locais suspeitos detectados e ignorados:', validation.issues);
-                addNotification('Dados locais suspeitos detectados e ignorados!', 'warning');
-                
-                // Usar apenas dados do servidor + configurações
-                setGameState(prev => ({
-                  ...prev,
-                  ...serverData,
-                  referralId: referralIdFromDB || prev.referralId,
-                  customization: loadedCustomization
-                }));
-              }
-            } else {
-              // Se não há dados do servidor, usar dados locais
-              setGameState(prev => ({
-                ...prev,
-                ...parsedState,
-                referralId: referralIdFromDB || parsedState.referralId || prev.referralId,
-                rewards: parsedState.rewards || prev.rewards,
-                activeBonuses: parsedState.activeBonuses || prev.activeBonuses,
-                prestige: parsedState.prestige || prev.prestige,
-                challenges: parsedState.challenges || prev.challenges,
-                dynamicEvents: parsedState.dynamicEvents || prev.dynamicEvents,
-                customization: loadedCustomization,
-                lastSyncTimestamp: prev.lastSyncTimestamp || Date.now()
-              }));
-              console.log('Dados locais carregados (sem servidor)');
-            }
-          } else {
+            const finalState = {
+              ...INITIAL_STATE,
+              ...parsedState,
+              referralId: referralIdFromDB || parsedState.referralId || INITIAL_STATE.referralId,
+              rewards: parsedState.rewards || INITIAL_STATE.rewards,
+              activeBonuses: parsedState.activeBonuses || INITIAL_STATE.activeBonuses,
+              prestige: parsedState.prestige || INITIAL_STATE.prestige,
+              challenges: parsedState.challenges || INITIAL_STATE.challenges,
+              dynamicEvents: parsedState.dynamicEvents || INITIAL_STATE.dynamicEvents,
+              customization: loadedCustomization
+            };
+            
+            setGameState(finalState);
+            // Migrar para IndexedDB
+            await indexedDBManager.saveGameData(finalState);
+    } else {
             // Se não existir estado salvo, usa o ID do banco ou gera um novo
             const finalReferralId = referralIdFromDB || uuidv4().substring(0, 8);
-            setGameState(prev => ({
-              ...prev,
-              ...serverData,
+      setGameState(prev => ({
+        ...prev,
               referralId: finalReferralId,
               customization: loadedCustomization
-            }));
-          }
+      }));
+    }
         }
       } catch (error) {
         console.error('Erro ao inicializar IndexedDB:', error);
@@ -845,60 +467,21 @@ export const GameProvider = ({ children }) => {
         
         if (savedState) {
           const parsedState = JSON.parse(savedState);
-          
-          // Se há dados do servidor, validar contra eles
-          if (serverData) {
-            const validation = validateDataIntegrity(parsedState, serverData);
-            
-            if (validation.isValid) {
-              // Merge: servidor + dados locais válidos
-              setGameState(prev => ({
-                ...prev,
-                ...serverData,
-                ...parsedState,
-                referralId: referralIdFromDB || parsedState.referralId || prev.referralId,
-                rewards: parsedState.rewards || prev.rewards,
-                activeBonuses: parsedState.activeBonuses || prev.activeBonuses,
-                prestige: parsedState.prestige || prev.prestige,
-                challenges: parsedState.challenges || prev.challenges,
-                dynamicEvents: parsedState.dynamicEvents || prev.dynamicEvents,
-                customization: loadedCustomization,
-                lastSyncTimestamp: prev.lastSyncTimestamp || Date.now()
-              }));
-              console.log('Dados locais validados e carregados com sucesso');
-            } else {
-              console.warn('Dados locais suspeitos detectados e ignorados:', validation.issues);
-              addNotification('Dados locais suspeitos detectados e ignorados!', 'warning');
-              
-              // Usar apenas dados do servidor + configurações
-              setGameState(prev => ({
-                ...prev,
-                ...serverData,
-                referralId: referralIdFromDB || prev.referralId,
-                customization: loadedCustomization
-              }));
-            }
-          } else {
-            // Se não há dados do servidor, usar dados locais
-            setGameState(prev => ({
-              ...prev,
-              ...parsedState,
-              referralId: referralIdFromDB || parsedState.referralId || prev.referralId,
-              rewards: parsedState.rewards || prev.rewards,
-              activeBonuses: parsedState.activeBonuses || prev.activeBonuses,
-              prestige: parsedState.prestige || prev.prestige,
-              challenges: parsedState.challenges || prev.challenges,
-              dynamicEvents: parsedState.dynamicEvents || prev.dynamicEvents,
-              customization: loadedCustomization,
-              lastSyncTimestamp: prev.lastSyncTimestamp || Date.now()
-            }));
-            console.log('Dados locais carregados (sem servidor)');
-          }
+          setGameState({
+            ...INITIAL_STATE,
+            ...parsedState,
+            referralId: referralIdFromDB || parsedState.referralId || INITIAL_STATE.referralId,
+            rewards: parsedState.rewards || INITIAL_STATE.rewards,
+            activeBonuses: parsedState.activeBonuses || INITIAL_STATE.activeBonuses,
+            prestige: parsedState.prestige || INITIAL_STATE.prestige,
+            challenges: parsedState.challenges || INITIAL_STATE.challenges,
+            dynamicEvents: parsedState.dynamicEvents || INITIAL_STATE.dynamicEvents,
+            customization: loadedCustomization
+          });
         } else {
           const finalReferralId = referralIdFromDB || uuidv4().substring(0, 8);
           setGameState(prev => ({
             ...prev,
-            ...serverData,
             referralId: finalReferralId,
             customization: loadedCustomization
           }));
@@ -909,55 +492,24 @@ export const GameProvider = ({ children }) => {
     initializeGame();
   }, []);
 
-  // Função para limpar dados antes de salvar (remover funções e objetos não serializáveis)
-  const cleanDataForStorage = (data) => {
-    const cleaned = JSON.parse(JSON.stringify(data, (key, value) => {
-      // Remover funções e objetos não serializáveis
-      if (typeof value === 'function') {
-        return undefined;
-      }
-      if (value instanceof Date) {
-        return value.toISOString();
-      }
-      if (value instanceof RegExp) {
-        return value.toString();
-      }
-      if (value instanceof Error) {
-        return { message: value.message, stack: value.stack };
-      }
-      return value;
-    }));
-    
-    // Remover propriedades específicas que podem causar problemas
-    delete cleaned.lastSyncTimestamp;
-    delete cleaned.isDataValidated;
-    delete cleaned.fraudDetection;
-    
-    return cleaned;
-  };
-
-  // Salva o estado do jogo no IndexedDB e localStorage (SEM salvar no servidor automaticamente)
+  // Salva o estado do jogo no IndexedDB e localStorage sempre que ele mudar
   useEffect(() => {
     const timeoutId = setTimeout(async () => {
-      // Só salvar se houver dados válidos E não for o estado inicial
       if (gameState.coins > 0 || gameState.level > 1 || gameState.achievements.length > 0) {
-        console.log('Salvando gameState local:', gameState);
-        
-        // Limpar dados antes de salvar
-        const cleanedData = cleanDataForStorage(gameState);
+        console.log('Salvando gameState completo:', gameState);
         
         // Salvar no localStorage como backup
-        localStorage.setItem('nutriaGameState', JSON.stringify(cleanedData));
+        localStorage.setItem('nutriaGameState', JSON.stringify(gameState));
         
         // Salvar no IndexedDB
         try {
-          await indexedDBManager.saveGameData(cleanedData);
+          await indexedDBManager.saveGameData(gameState);
           console.log('Dados salvos no IndexedDB com sucesso');
         } catch (error) {
           console.error('Erro ao salvar no IndexedDB:', error);
         }
       }
-    }, 1000); // Aumentar timeout para evitar salvamento prematuro
+    }, 100);
     
     return () => clearTimeout(timeoutId);
   }, [gameState.coins, gameState.level, gameState.achievements.length, JSON.stringify(gameState.customization)]);
@@ -1273,10 +825,9 @@ export const GameProvider = ({ children }) => {
         missions,
       };
       
-      // Sincronizar com Supabase a cada 10 cliques para evitar spam
-      if (newState.totalClicks % 10 === 0) {
-        // Usar a função de salvamento segura
-        saveToServer(newState);
+      // Sincronizar com Supabase a cada 5 cliques para evitar spam
+      if (newState.totalClicks % 5 === 0) {
+        syncToSupabase(newState);
       }
       
       return newState;
@@ -1808,7 +1359,7 @@ export const GameProvider = ({ children }) => {
 
   // Função para sincronização manual
   const manualSync = async () => {
-    await saveToServer(gameState);
+    await syncToSupabase(gameState);
   };
 
   // Sincronização manual apenas quando necessário
@@ -1964,15 +1515,8 @@ export const GameProvider = ({ children }) => {
         removeNotification,
         clearNotifications,
         
-        // Sistema Anti-Fraude e Sincronização
-        lastSyncTimestamp,
-        isDataValidated,
-        fraudDetection,
-        syncWithServer,
-        saveToServer,
-        loadFromServer,
-        loadFromServerAndReturn,
-        validateDataIntegrity
+        // Sistema de Sincronização
+        manualSync
       }}
     >
       {children}
