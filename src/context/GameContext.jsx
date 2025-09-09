@@ -7,6 +7,22 @@ import { useAuth } from './AuthContext';
 
 const GameContext = createContext();
 
+// Função para limpar dados antes de salvar no IndexedDB
+const cleanDataForStorage = (data) => {
+  const cleaned = JSON.parse(JSON.stringify(data, (key, value) => {
+    // Remove funções e propriedades não serializáveis
+    if (typeof value === 'function') {
+      return undefined;
+    }
+    // Remove propriedades internas de sincronização
+    if (key === 'lastSyncTimestamp' || key === 'isDataValidated' || key === 'fraudDetection') {
+      return undefined;
+    }
+    return value;
+  }));
+  return cleaned;
+};
+
 const MAX_LEVEL = 10;
 const getNutriaImage = (level) => `/assets/nutria_${Math.min(level, MAX_LEVEL)}.png`;
 const getExpToNextLevel = (level) => Math.floor(100 * Math.pow(level, 1.7));
@@ -567,8 +583,9 @@ export const GameProvider = ({ children }) => {
             };
             
             setGameState(finalState);
-            // Migrar para IndexedDB
-            await indexedDBManager.saveGameData(finalState);
+            // Migrar para IndexedDB (dados limpos)
+            const cleanData = cleanDataForStorage(finalState);
+            await indexedDBManager.saveGameData(cleanData);
     } else {
             // Se não existir estado salvo, usa o ID do banco ou gera um novo
             const finalReferralId = referralIdFromDB || uuidv4().substring(0, 8);
@@ -622,6 +639,60 @@ export const GameProvider = ({ children }) => {
     initializeGame();
   }, []);
 
+  // ===== SUPABASE REALTIME - SINCRONIZAÇÃO AUTOMÁTICA =====
+  useEffect(() => {
+    const setupRealtime = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      console.log('Configurando Supabase Realtime para usuário:', user.id);
+
+      const channel = supabase
+        .channel('game_stats_changes')
+        .on(
+          'postgres_changes',
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'game_stats',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('🔄 Mudança detectada no servidor:', payload);
+            
+            if (payload.eventType === 'UPDATE' && payload.new) {
+              console.log('📊 Atualizando dados locais com dados do servidor:', payload.new);
+              
+              setGameState(prev => ({
+                ...prev,
+                coins: payload.new.total_coins || prev.coins,
+                level: payload.new.level || prev.level,
+                experience: payload.new.experience || prev.experience,
+                totalClicks: payload.new.total_clicks || prev.totalClicks,
+                streak: payload.new.streak || prev.streak,
+                maxStreak: payload.new.max_streak || prev.maxStreak,
+                achievements: payload.new.achievements || prev.achievements,
+                lastSync: payload.new.last_sync || prev.lastSync
+              }));
+              
+              console.log('✅ Estado atualizado via Realtime');
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        console.log('🔌 Desconectando Supabase Realtime');
+        supabase.removeChannel(channel);
+      };
+    };
+
+    const cleanup = setupRealtime();
+    return () => {
+      cleanup.then(cleanupFn => cleanupFn && cleanupFn());
+    };
+  }, []);
+
   // Salva o estado do jogo no IndexedDB e localStorage sempre que ele mudar
   useEffect(() => {
     const timeoutId = setTimeout(async () => {
@@ -631,9 +702,10 @@ export const GameProvider = ({ children }) => {
         // Salvar no localStorage como backup
         localStorage.setItem('nutriaGameState', JSON.stringify(gameState));
         
-        // Salvar no IndexedDB
+        // Salvar no IndexedDB (dados limpos)
         try {
-          await indexedDBManager.saveGameData(gameState);
+          const cleanData = cleanDataForStorage(gameState);
+          await indexedDBManager.saveGameData(cleanData);
           console.log('Dados salvos no IndexedDB com sucesso');
         } catch (error) {
           console.error('Erro ao salvar no IndexedDB:', error);
