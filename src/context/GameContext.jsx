@@ -369,6 +369,38 @@ export const GameProvider = ({ children }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // PRIMEIRO: Verificar se já existem dados no Supabase
+      const { data: existingData, error: fetchError } = await supabase
+        .from('game_stats')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('Erro ao buscar dados existentes:', fetchError);
+        return;
+      }
+
+      // Se existem dados no servidor, verificar se os dados locais são válidos
+      if (existingData) {
+        console.log('📊 Dados existentes no servidor:', existingData);
+        
+        // Só atualizar se os dados locais são melhores que os do servidor
+        const shouldUpdate = (
+          updatedState.coins > (existingData.total_coins || 0) ||
+          updatedState.level > (existingData.level || 1) ||
+          updatedState.totalClicks > (existingData.total_clicks || 0) ||
+          updatedState.achievements.length > (existingData.achievements?.length || 0)
+        );
+
+        if (!shouldUpdate) {
+          console.log('⚠️ Dados locais não são melhores que os do servidor, pulando sincronização');
+          return;
+        }
+
+        console.log('✅ Dados locais são melhores, atualizando servidor');
+      }
+
       const gameStats = {
         user_id: user.id,
         total_coins: updatedState.coins,
@@ -488,7 +520,7 @@ export const GameProvider = ({ children }) => {
         let serverData = null;
         
         if (user) {
-          console.log('Usuário logado, carregando dados do Supabase...');
+          console.log('🔍 Usuário logado, carregando dados do Supabase...');
           
           // Verificar se usuário já existe na tabela game_stats
           const { data: existingStats, error: fetchError } = await supabase
@@ -498,13 +530,13 @@ export const GameProvider = ({ children }) => {
             .single();
 
           if (fetchError && fetchError.code !== 'PGRST116') {
-            console.error('Erro ao buscar dados do servidor:', fetchError);
+            console.error('❌ Erro ao buscar dados do servidor:', fetchError);
           } else if (existingStats) {
-            console.log('Dados encontrados no Supabase:', existingStats);
+            console.log('✅ Dados encontrados no Supabase:', existingStats);
             serverData = existingStats;
           } else {
-            console.log('Usuário não encontrado no Supabase, criando dados iniciais...');
-            // Criar dados iniciais no Supabase
+            console.log('🆕 Usuário não encontrado no Supabase, criando dados iniciais...');
+            // Criar dados iniciais no Supabase APENAS se não existir
             const { error: insertError } = await supabase
               .from('game_stats')
               .insert({
@@ -518,13 +550,23 @@ export const GameProvider = ({ children }) => {
                 max_streak: 0,
                 total_achievements: 0,
                 last_click: new Date().toISOString(),
-                last_sync: new Date().toISOString()
+                last_sync: new Date().toISOString(),
+                achievements: [],
+                prestige: { level: 0, points: 0 },
+                missions: { daily: {}, weekly: {} },
+                dynamic_events: [],
+                rewards: [],
+                active_bonuses: [],
+                challenges: [],
+                customization: getDefaultCustomization(),
+                titles: getTitles(() => '').map(t => ({ ...t, unlocked: false })),
+                equipped_title: 'starter'
               });
 
             if (insertError) {
-              console.error('Erro ao criar dados iniciais:', insertError);
+              console.error('❌ Erro ao criar dados iniciais:', insertError);
             } else {
-              console.log('Dados iniciais criados no Supabase');
+              console.log('✅ Dados iniciais criados no Supabase');
               serverData = {
                 total_coins: 0,
                 total_clicks: 0,
@@ -533,7 +575,17 @@ export const GameProvider = ({ children }) => {
                 prestige_level: 0,
                 streak: 0,
                 max_streak: 0,
-                total_achievements: 0
+                total_achievements: 0,
+                achievements: [],
+                prestige: { level: 0, points: 0 },
+                missions: { daily: {}, weekly: {} },
+                dynamic_events: [],
+                rewards: [],
+                active_bonuses: [],
+                challenges: [],
+                customization: getDefaultCustomization(),
+                titles: getTitles(() => '').map(t => ({ ...t, unlocked: false })),
+                equipped_title: 'starter'
               };
             }
           }
@@ -742,19 +794,22 @@ export const GameProvider = ({ children }) => {
   useEffect(() => {
     const timeoutId = setTimeout(async () => {
       if (gameState.coins > 0 || gameState.level > 1 || gameState.achievements.length > 0) {
-        console.log('Salvando gameState completo:', gameState);
+        console.log('💾 Salvando gameState localmente:', gameState);
         
         // Salvar no localStorage como backup
-      localStorage.setItem('nutriaGameState', JSON.stringify(gameState));
+        localStorage.setItem('nutriaGameState', JSON.stringify(gameState));
         
         // Salvar no IndexedDB (dados limpos)
         try {
           const cleanData = cleanDataForStorage(gameState);
           await indexedDBManager.saveGameData(cleanData);
-          console.log('Dados salvos no IndexedDB com sucesso');
+          console.log('✅ Dados salvos no IndexedDB com sucesso');
         } catch (error) {
-          console.error('Erro ao salvar no IndexedDB:', error);
+          console.error('❌ Erro ao salvar no IndexedDB:', error);
         }
+        
+        // NÃO salvar automaticamente no Supabase aqui
+        // O Supabase será atualizado apenas quando necessário
       }
     }, 100);
     
@@ -1072,8 +1127,8 @@ export const GameProvider = ({ children }) => {
         missions,
       };
       
-      // Sincronizar com Supabase a cada 5 cliques para evitar spam
-      if (newState.totalClicks % 5 === 0) {
+      // Sincronizar com Supabase a cada 10 cliques e apenas se houver progresso significativo
+      if (newState.totalClicks % 10 === 0 && (newState.coins > 0 || newState.level > 1)) {
         syncToSupabase(newState);
       }
       
