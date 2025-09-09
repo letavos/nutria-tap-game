@@ -8,7 +8,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Supabase não configurado. Usando modo offline.')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,   // mantém sessão salva
+    autoRefreshToken: true, // renova tokens automaticamente
+    detectSessionInUrl: true // detecta sessão na URL
+  }
+})
 
 // Função para verificar se Supabase está configurado
 export const isSupabaseConfigured = () => {

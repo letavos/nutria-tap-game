@@ -452,11 +452,90 @@ export const GameProvider = ({ children }) => {
           }
         }
         
-        // ===== SISTEMA ORIGINAL QUE FUNCIONAVA =====
-        // Tentar carregar do IndexedDB primeiro
+        // ===== SISTEMA SUPABASE COMO FONTE DA VERDADE =====
+        // 1. PRIMEIRO: Carregar dados do Supabase (fonte da verdade)
+        const { data: { user } } = await supabase.auth.getUser();
+        let serverData = null;
+        
+        if (user) {
+          console.log('Usuário logado, carregando dados do Supabase...');
+          
+          // Verificar se usuário já existe na tabela game_stats
+          const { data: existingStats, error: fetchError } = await supabase
+            .from('game_stats')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+
+          if (fetchError && fetchError.code !== 'PGRST116') {
+            console.error('Erro ao buscar dados do servidor:', fetchError);
+          } else if (existingStats) {
+            console.log('Dados encontrados no Supabase:', existingStats);
+            serverData = existingStats;
+          } else {
+            console.log('Usuário não encontrado no Supabase, criando dados iniciais...');
+            // Criar dados iniciais no Supabase
+            const { error: insertError } = await supabase
+              .from('game_stats')
+              .insert({
+                user_id: user.id,
+                total_coins: 0,
+                total_clicks: 0,
+                level: 1,
+                experience: 0,
+                prestige_level: 0,
+                streak: 0,
+                max_streak: 0,
+                total_achievements: 0,
+                last_click: new Date().toISOString(),
+                last_sync: new Date().toISOString()
+              });
+
+            if (insertError) {
+              console.error('Erro ao criar dados iniciais:', insertError);
+            } else {
+              console.log('Dados iniciais criados no Supabase');
+              serverData = {
+                total_coins: 0,
+                total_clicks: 0,
+                level: 1,
+                experience: 0,
+                prestige_level: 0,
+                streak: 0,
+                max_streak: 0,
+                total_achievements: 0
+              };
+            }
+          }
+        }
+
+        // 2. SEGUNDO: Carregar dados locais como backup/merge
         const savedGameState = await indexedDBManager.loadGameData();
-        if (savedGameState) {
-          console.log('Estado do jogo carregado do IndexedDB:', savedGameState);
+        
+        if (serverData) {
+          // Usar dados do Supabase como base e mergear com dados locais válidos
+          console.log('Usando dados do Supabase como base');
+          setGameState({
+            ...INITIAL_STATE,
+            ...serverData,
+            coins: serverData.total_coins || 0,
+            level: serverData.level || 1,
+            experience: serverData.experience || 0,
+            totalClicks: serverData.total_clicks || 0,
+            streak: serverData.streak || 0,
+            maxStreak: serverData.max_streak || 0,
+            achievements: serverData.achievements || [],
+            referralId: referralIdFromDB || INITIAL_STATE.referralId,
+            rewards: savedGameState?.rewards || INITIAL_STATE.rewards,
+            activeBonuses: savedGameState?.activeBonuses || INITIAL_STATE.activeBonuses,
+            prestige: savedGameState?.prestige || INITIAL_STATE.prestige,
+            challenges: savedGameState?.challenges || INITIAL_STATE.challenges,
+            dynamicEvents: savedGameState?.dynamicEvents || INITIAL_STATE.dynamicEvents,
+            customization: loadedCustomization
+          });
+        } else if (savedGameState) {
+          // Fallback: usar dados locais se não houver servidor
+          console.log('Usando dados locais como fallback');
           setGameState({
             ...INITIAL_STATE,
             ...savedGameState,
