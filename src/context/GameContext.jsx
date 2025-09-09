@@ -440,20 +440,70 @@ export const GameProvider = ({ children }) => {
   const saveToServer = async (dataToSave) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) return false;
 
-      // Validar dados antes de salvar
-      const validation = validateDataIntegrity(dataToSave, gameState);
+      // Buscar dados atuais do servidor para comparação
+      const { data: currentServerData, error: fetchError } = await supabase
+        .from('game_stats')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('Erro ao buscar dados do servidor:', fetchError);
+        return false;
+      }
+
+      // Se não há dados no servidor, criar novos
+      if (!currentServerData) {
+        const { error: insertError } = await supabase
+          .from('game_stats')
+          .insert({
+            user_id: user.id,
+            total_coins: dataToSave.coins || 0,
+            total_clicks: dataToSave.totalClicks || 0,
+            level: dataToSave.level || 1,
+            experience: dataToSave.experience || 0,
+            prestige_level: dataToSave.prestige?.level || 0,
+            streak: dataToSave.streak || 0,
+            max_streak: dataToSave.maxStreak || 0,
+            total_achievements: dataToSave.achievements?.length || 0,
+            last_click: new Date().toISOString(),
+            last_sync: new Date().toISOString()
+          });
+
+        if (insertError) {
+          console.error('Erro ao inserir dados no servidor:', insertError);
+          return false;
+        }
+
+        console.log('Dados iniciais criados no servidor');
+        return true;
+      }
+
+      // Validar dados antes de salvar (só se houver dados no servidor)
+      const validation = validateDataIntegrity(dataToSave, currentServerData);
       if (!validation.isValid) {
         console.warn('Tentativa de salvar dados suspeitos bloqueada:', validation.issues);
         addNotification('Tentativa de fraude detectada e bloqueada!', 'error');
         return false;
       }
 
-      // Salvar no servidor
+      // Salvar no servidor apenas se os dados forem válidos
       const { error } = await supabase
         .from('game_stats')
-        .update(dataToSave)
+        .update({
+          total_coins: dataToSave.coins || 0,
+          total_clicks: dataToSave.totalClicks || 0,
+          level: dataToSave.level || 1,
+          experience: dataToSave.experience || 0,
+          prestige_level: dataToSave.prestige?.level || 0,
+          streak: dataToSave.streak || 0,
+          max_streak: dataToSave.maxStreak || 0,
+          total_achievements: dataToSave.achievements?.length || 0,
+          last_click: new Date().toISOString(),
+          last_sync: new Date().toISOString()
+        })
         .eq('user_id', user.id);
 
       if (error) {
@@ -687,8 +737,8 @@ export const GameProvider = ({ children }) => {
           }
         } else {
           // Fallback para localStorage com validação
-          const savedState = localStorage.getItem('nutriaGameState');
-          if (savedState) {
+    const savedState = localStorage.getItem('nutriaGameState');
+    if (savedState) {
             const parsedState = JSON.parse(savedState);
             console.log('Estado do jogo carregado do localStorage:', parsedState);
             
@@ -719,18 +769,18 @@ export const GameProvider = ({ children }) => {
               // Migrar para IndexedDB
               await indexedDBManager.saveGameData(finalState);
               console.log('Dados locais validados e carregados com sucesso');
-            } else {
+    } else {
               console.warn('Dados locais suspeitos detectados e ignorados:', validation.issues);
               addNotification('Dados locais suspeitos detectados e ignorados!', 'warning');
               
               // Usar apenas dados do servidor + configurações
-              setGameState(prev => ({
-                ...prev,
+      setGameState(prev => ({
+        ...prev,
                 ...serverData,
                 referralId: referralIdFromDB || prev.referralId,
                 customization: loadedCustomization
-              }));
-            }
+      }));
+    }
           } else {
             // Se não existir estado salvo, usa o ID do banco ou gera um novo
             const finalReferralId = referralIdFromDB || uuidv4().substring(0, 8);
@@ -807,23 +857,15 @@ export const GameProvider = ({ children }) => {
     initializeGame();
   }, []);
 
-  // Salva o estado do jogo no IndexedDB, localStorage e servidor com validação
+  // Salva o estado do jogo no IndexedDB e localStorage (SEM salvar no servidor automaticamente)
   useEffect(() => {
     const timeoutId = setTimeout(async () => {
+      // Só salvar se houver dados válidos E não for o estado inicial
       if (gameState.coins > 0 || gameState.level > 1 || gameState.achievements.length > 0) {
-        console.log('Salvando gameState completo:', gameState);
-        
-        // ===== SISTEMA ANTI-FRAUDE: VALIDAR ANTES DE SALVAR =====
-        // Validar dados antes de salvar no servidor
-        const validation = validateDataIntegrity(gameState, gameState);
-        if (!validation.isValid) {
-          console.warn('Tentativa de salvar dados suspeitos bloqueada:', validation.issues);
-          addNotification('Tentativa de fraude detectada e bloqueada!', 'error');
-          return;
-        }
+        console.log('Salvando gameState local:', gameState);
         
         // Salvar no localStorage como backup
-      localStorage.setItem('nutriaGameState', JSON.stringify(gameState));
+        localStorage.setItem('nutriaGameState', JSON.stringify(gameState));
         
         // Salvar no IndexedDB
         try {
@@ -832,16 +874,8 @@ export const GameProvider = ({ children }) => {
         } catch (error) {
           console.error('Erro ao salvar no IndexedDB:', error);
         }
-        
-        // Salvar no servidor (com validação)
-        try {
-          await saveToServer(gameState);
-          console.log('Dados salvos no servidor com sucesso');
-        } catch (error) {
-          console.error('Erro ao salvar no servidor:', error);
-        }
       }
-    }, 100);
+    }, 1000); // Aumentar timeout para evitar salvamento prematuro
     
     return () => clearTimeout(timeoutId);
   }, [gameState.coins, gameState.level, gameState.achievements.length, JSON.stringify(gameState.customization)]);
@@ -1157,9 +1191,10 @@ export const GameProvider = ({ children }) => {
         missions,
       };
       
-      // Sincronizar com Supabase a cada 5 cliques para evitar spam
-      if (newState.totalClicks % 5 === 0) {
-        syncToSupabase(newState);
+      // Sincronizar com Supabase a cada 10 cliques para evitar spam
+      if (newState.totalClicks % 10 === 0) {
+        // Usar a função de salvamento segura
+        saveToServer(newState);
       }
       
       return newState;
@@ -1691,18 +1726,11 @@ export const GameProvider = ({ children }) => {
 
   // Função para sincronização manual
   const manualSync = async () => {
-    await syncToSupabase(gameState);
+    await saveToServer(gameState);
   };
 
-  // Sincronização forçada quando a página carrega (após 5 segundos)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      console.log('Sincronização automática iniciada...');
-      syncToSupabase(gameState);
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, []);
+  // Sincronização manual apenas quando necessário
+  // Removida sincronização automática que estava causando problemas
 
   // Função para atualizar personalização
   const updateCustomization = (custom) => {
