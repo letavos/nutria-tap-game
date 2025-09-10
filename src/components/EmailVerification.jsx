@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../config/supabase';
 import { FaEnvelope, FaCheckCircle, FaExclamationTriangle, FaSpinner } from 'react-icons/fa';
+import { useLanguage } from '../context/LanguageContext';
 
 const EmailVerification = ({ onVerified }) => {
   const [email, setEmail] = useState('');
@@ -8,6 +9,7 @@ const EmailVerification = ({ onVerified }) => {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState(''); // 'success', 'error', 'info'
   const [isVerified, setIsVerified] = useState(false);
+  const { t } = useLanguage();
 
   useEffect(() => {
     // Verificar se o usuário já está verificado
@@ -19,7 +21,7 @@ const EmailVerification = ({ onVerified }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user && user.email_confirmed_at) {
         setIsVerified(true);
-        setMessage('Email já verificado!');
+        setMessage(t('emailAlreadyVerified') || 'Email already verified!');
         setMessageType('success');
         if (onVerified) onVerified();
       }
@@ -30,7 +32,7 @@ const EmailVerification = ({ onVerified }) => {
 
   const resendVerification = async () => {
     if (!email) {
-      setMessage('Por favor, digite seu email');
+      setMessage(t('pleaseEnterEmail') || 'Please enter your email');
       setMessageType('error');
       return;
     }
@@ -51,11 +53,11 @@ const EmailVerification = ({ onVerified }) => {
         throw error;
       }
 
-      setMessage('Email de verificação reenviado! Verifique sua caixa de entrada.');
+      setMessage(t('verificationEmailResent') || 'Verification email resent! Check your inbox.');
       setMessageType('success');
     } catch (error) {
       console.error('Erro ao reenviar email:', error);
-      setMessage(`Erro: ${error.message}`);
+      setMessage(`${t('error')}: ${error.message}`);
       setMessageType('error');
     } finally {
       setLoading(false);
@@ -72,8 +74,8 @@ const EmailVerification = ({ onVerified }) => {
       <div className="email-verification-container">
         <div className="email-verification-success">
           <FaCheckCircle className="success-icon" />
-          <h3>Email Verificado!</h3>
-          <p>Seu email foi verificado com sucesso. Você pode continuar usando o jogo.</p>
+          <h3>{t('emailVerifiedTitle') || 'Email Verified!'}</h3>
+          <p>{t('emailVerifiedMessage') || 'Your email was verified. You can continue using the game.'}</p>
         </div>
       </div>
     );
@@ -84,8 +86,8 @@ const EmailVerification = ({ onVerified }) => {
       <div className="email-verification-card">
         <div className="email-verification-header">
           <FaEnvelope className="email-icon" />
-          <h3>Verificação de Email Necessária</h3>
-          <p>Para continuar, você precisa verificar seu email.</p>
+          <h3>{t('emailVerificationRequired') || 'Email Verification Required'}</h3>
+          <p>{t('emailVerificationInfo') || 'To continue, you need to verify your email.'}</p>
         </div>
 
         <div className="email-verification-form">
@@ -109,12 +111,12 @@ const EmailVerification = ({ onVerified }) => {
             {loading ? (
               <>
                 <FaSpinner className="spinner" />
-                Enviando...
+                {t('sending') || 'Sending...'}
               </>
             ) : (
               <>
                 <FaEnvelope />
-                Reenviar Email de Verificação
+                {t('resendVerificationEmail') || 'Resend Verification Email'}
               </>
             )}
           </button>
@@ -129,12 +131,12 @@ const EmailVerification = ({ onVerified }) => {
         )}
 
         <div className="email-verification-help">
-          <h4>Problemas comuns:</h4>
+          <h4>{t('commonProblems') || 'Common problems:'}</h4>
           <ul>
-            <li>Verifique sua caixa de spam</li>
-            <li>Certifique-se de que o email está correto</li>
-            <li>O link pode ter expirado - reenvie um novo</li>
-            <li>Se o problema persistir, tente criar uma nova conta</li>
+            <li>{t('checkSpam') || 'Check your spam folder'}</li>
+            <li>{t('ensureEmailCorrect') || 'Make sure the email is correct'}</li>
+            <li>{t('linkMayExpire') || 'The link may have expired - resend a new one'}</li>
+            <li>{t('ifProblemPersists') || 'If the problem persists, try creating a new account'}</li>
           </ul>
         </div>
       </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import './App.css';
 import './styles/AuthStyles.css';
 import DashboardManager from './components/DashboardManager';
+import ServerDataLoader from './components/ServerDataLoader';
 import { GameProvider } from './context/GameContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { AuthProvider } from './context/AuthContext';
@@ -91,9 +92,9 @@ const AppContent = () => {
       {isLoading ? (
         <LoadingScreen loadingProgress={loadingProgress} loadingText={loadingText} />
       ) : (
-        <GameProvider>
+        <ServerDataLoader>
           <DashboardManager />
-        </GameProvider>
+        </ServerDataLoader>
       )}
     </div>
   );

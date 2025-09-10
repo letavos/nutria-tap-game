@@ -22,26 +22,36 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Inicializar autenticação e escutar mudanças
+  // Inicializar autenticação com persistência de sessão
   useEffect(() => {
+    let unsub = () => {};
     const initializeAuth = async () => {
       try {
         setLoading(true);
-        
-        // Aguardar inicialização do auth
-        await authService.waitForAuth();
-        
-        const currentUser = authService.getCurrentUser();
-        
-        if (currentUser) {
-          // Carregar perfil do usuário
+
+        // 1) Ler sessão atual diretamente do supabase (persistSession)
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session?.user) {
+          setUser(sessionData.session.user);
+          setIsLoggedIn(true);
           const profileResult = await authService.getUserProfile();
-          if (profileResult.success) {
-            setUser(currentUser);
-            setProfile(profileResult.profile);
-            setIsLoggedIn(true);
-          }
+          if (profileResult.success) setProfile(profileResult.profile);
         }
+
+        // 2) Assinar mudanças de auth para manter login após F5/refresh
+        const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (session?.user) {
+            setUser(session.user);
+            setIsLoggedIn(true);
+            const profileResult = await authService.getUserProfile();
+            if (profileResult.success) setProfile(profileResult.profile);
+          } else {
+            setUser(null);
+            setProfile(null);
+            setIsLoggedIn(false);
+          }
+        });
+        unsub = () => sub.subscription.unsubscribe();
       } catch (error) {
         console.error('Erro ao inicializar auth:', error);
         setError('Erro ao carregar dados do usuário');
@@ -51,40 +61,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     initializeAuth();
-
-    // Escutar mudanças de autenticação do Supabase
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('🔄 Auth state changed:', event, session?.user?.id);
-      
-      if (event === 'SIGNED_IN' && session?.user) {
-        console.log('✅ Usuário logado via listener');
-        setUser(session.user);
-        setIsLoggedIn(true);
-        
-        // Carregar perfil
-        try {
-          const profileResult = await authService.getUserProfile();
-          if (profileResult.success) {
-            setProfile(profileResult.profile);
-          }
-        } catch (error) {
-          console.error('Erro ao carregar perfil:', error);
-        }
-      } else if (event === 'SIGNED_OUT') {
-        console.log('❌ Usuário deslogado via listener');
-        setUser(null);
-        setProfile(null);
-        setIsLoggedIn(false);
-      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        console.log('🔄 Token renovado');
-        setUser(session.user);
-        setIsLoggedIn(true);
-      }
-    });
-
-    return () => {
-      subscription?.unsubscribe();
-    };
+    return () => unsub();
   }, []);
 
   // ===== REGISTRO =====
@@ -190,6 +167,9 @@ export const AuthProvider = ({ children }) => {
           setUser(result.user);
           setProfile(profileResult.profile);
           setIsLoggedIn(true);
+          
+          // Carregar dados do jogo do Supabase (FONTE DA VERDADE)
+          await loadGameDataFromSupabase(result.user.id);
         }
         
         return {
@@ -208,6 +188,85 @@ export const AuthProvider = ({ children }) => {
       };
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  // ===== CARREGAR DADOS DO JOGO DO SUPABASE =====
+
+  const loadGameDataFromSupabase = useCallback(async (userId) => {
+    try {
+      console.log('🔍 Carregando dados do jogo do Supabase para usuário:', userId);
+      
+      // 1. Verificar se usuário tem game_stats
+      const { data: gameStats, error: statsError } = await supabase
+        .from('game_stats')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+      
+      if (statsError && statsError.code !== 'PGRST116') {
+        console.error('Erro ao carregar game_stats:', statsError);
+        return null;
+      }
+      
+      if (!gameStats) {
+        console.log('📝 Usuário não possui game_stats, criando...');
+        // Criar game_stats inicial
+        const initialStats = {
+          user_id: userId,
+          total_coins: 0,
+          total_clicks: 0,
+          level: 1,
+          experience: 0,
+          prestige_level: 0,
+          streak: 0,
+          max_streak: 0,
+          total_achievements: 0,
+          last_click: new Date().toISOString(),
+          last_sync: new Date().toISOString(),
+          referrals: [],
+          achievements: [],
+          airdrop_points: 0,
+          days_active: [],
+          missions: {
+            daily: [],
+            weekly: [],
+            last_daily: new Date().toISOString().slice(0, 10),
+            last_weekly: new Date().toISOString().slice(0, 10)
+          },
+          rewards: {
+            daily: { streak: 0, last_claim: null, available: true, last_claim_timestamp: null },
+            weekly: { last_claim: null, available: true, last_claim_timestamp: null },
+            monthly: { last_claim: null, available: true, last_claim_timestamp: null },
+            login: { claimed: [], last_claim: null, last_claim_timestamp: null }
+          },
+          customization: {
+            circleColor: 'green',
+            borderStyle: 'pulse',
+            backgroundStyle: 'default',
+            effects: 'none'
+          }
+        };
+        
+        const { error: createError } = await supabase
+          .from('game_stats')
+          .insert(initialStats);
+        
+        if (createError) {
+          console.error('Erro ao criar game_stats:', createError);
+          return null;
+        }
+        
+        console.log('✅ Game_stats criado com sucesso');
+        return initialStats;
+      }
+      
+      console.log('✅ Dados do jogo carregados do Supabase:', gameStats);
+      return gameStats;
+      
+    } catch (error) {
+      console.error('Erro ao carregar dados do jogo:', error);
+      return null;
     }
   }, []);
 
@@ -408,7 +467,8 @@ export const AuthProvider = ({ children }) => {
     checkUsernameAvailability,
     updateUserStats,
     getRanking,
-    clearError
+    clearError,
+    loadGameDataFromSupabase
   };
 
   return (

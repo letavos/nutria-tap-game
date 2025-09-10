@@ -868,14 +868,12 @@ const MiniGames = () => {
               </div>
               
               <div className="minigame-card-body">
-                <h4 className="minigame-card-name">Nutria Target</h4>
-                <p className="minigame-card-desc">Acertar alvos para ganhar pontos extras</p>
+                <h4 className="minigame-card-name">{t('nutriaTarget')}</h4>
+                <p className="minigame-card-desc">{t('nutriaTargetDesc')}</p>
               </div>
               
               <div className="minigame-card-footer">
-                <div className="minigame-status-badge">
-                  Em Breve
-                </div>
+                <div className="minigame-status-badge">{t('comingSoon')}</div>
               </div>
             </div>
           </div>
@@ -887,14 +885,12 @@ const MiniGames = () => {
               </div>
               
               <div className="minigame-card-body">
-                <h4 className="minigame-card-name">Nutria Puzzle</h4>
-                <p className="minigame-card-desc">Resolva quebra-cabeças para desbloquear recompensas</p>
+                <h4 className="minigame-card-name">{t('nutriaPuzzle')}</h4>
+                <p className="minigame-card-desc">{t('nutriaPuzzleDesc')}</p>
               </div>
               
               <div className="minigame-card-footer">
-                <div className="minigame-status-badge">
-                  Em Breve
-                </div>
+                <div className="minigame-status-badge">{t('comingSoon')}</div>
               </div>
             </div>
           </div>
@@ -906,14 +902,12 @@ const MiniGames = () => {
               </div>
               
               <div className="minigame-card-body">
-                <h4 className="minigame-card-name">Nutria Runner</h4>
-                <p className="minigame-card-desc">Corra e colete moedas no estilo endless runner</p>
+                <h4 className="minigame-card-name">{t('nutriaRunner')}</h4>
+                <p className="minigame-card-desc">{t('nutriaRunnerDesc')}</p>
               </div>
               
               <div className="minigame-card-footer">
-                <div className="minigame-status-badge">
-                  Em Breve
-                </div>
+                <div className="minigame-status-badge">{t('comingSoon')}</div>
               </div>
             </div>
           </div>
@@ -981,29 +975,29 @@ const CustomizationPanel = ({ customization, updateCustomization, resetCustomiza
   // Funções para descrições
   const getBorderDescription = (styleId) => {
     const descriptions = {
-      'static': 'Borda sólida e estática',
-      'pulse': 'Borda com efeito pulsante',
-      'glow': 'Borda com brilho suave',
-      'gradient': 'Borda com gradiente colorido'
+      'static': t('borderStaticDesc') || 'Solid static border',
+      'pulse': t('borderPulseDesc') || 'Pulsing border',
+      'glow': t('borderGlowDesc') || 'Soft glow border',
+      'gradient': t('borderGradientDesc') || 'Color gradient border'
     };
     return descriptions[styleId] || '';
   };
 
   const getBackgroundDescription = (styleId) => {
     const descriptions = {
-      'default': 'Fundo padrão do jogo',
-      'gradient1': 'Gradiente verde e dourado',
-      'gradient2': 'Gradiente azul e roxo',
-      'gradient3': 'Gradiente neon vibrante'
+      'default': (t('backgroundDefaultDesc') || 'Default game background'),
+      'gradient1': (t('backgroundGradient1Desc') || 'Green-gold gradient'),
+      'gradient2': (t('backgroundGradient2Desc') || 'Blue-purple gradient'),
+      'gradient3': (t('backgroundGradient3Desc') || 'Vibrant neon gradient')
     };
     return descriptions[styleId] || '';
   };
 
   const getEffectDescription = (effectId) => {
     const descriptions = {
-      'none': 'Sem efeitos especiais',
-      'shine': 'Efeito de brilho suave',
-      'particles': 'Partículas flutuantes'
+      'none': (t('effectNoneDesc') || 'No special effects'),
+      'shine': (t('effectShineDesc') || 'Soft shine effect'),
+      'particles': (t('effectParticlesDesc') || 'Floating particles')
     };
     return descriptions[effectId] || '';
   };
@@ -1012,13 +1006,13 @@ const CustomizationPanel = ({ customization, updateCustomization, resetCustomiza
     <div className="customization-panel">
       <div className="customization-header">
         <FaPalette className="customization-icon" />
-        <h3>Personalização</h3>
-        <p className="customization-description">Personalize a aparência do seu jogo</p>
+        <h3>{t('personalization') || 'Personalization'}</h3>
+        <p className="customization-description">{t('personalizationDesc') || 'Customize your game appearance'}</p>
       </div>
       
       <div className="customization-section">
-        <h4>Cor do Círculo</h4>
-        <p className="section-description">Escolha a cor do círculo do personagem</p>
+        <h4>{t('circleColor') || 'Circle Color'}</h4>
+        <p className="section-description">{t('chooseCircleColor') || 'Choose the character circle color'}</p>
         <div className="color-options">
           {CIRCLE_COLORS.map(color => (
             <button
@@ -1033,13 +1027,13 @@ const CustomizationPanel = ({ customization, updateCustomization, resetCustomiza
           ))}
         </div>
         <div className="current-selection">
-          Cor atual: <strong>{CIRCLE_COLORS.find(c => c.id === draft.circleColor)?.label}</strong>
+          {t('currentColor') || 'Current color'}: <strong>{CIRCLE_COLORS.find(c => c.id === draft.circleColor)?.label}</strong>
         </div>
       </div>
       
       <div className="customization-section">
-        <h4>Estilo de Borda</h4>
-        <p className="section-description">Defina o estilo da borda do círculo</p>
+        <h4>{t('borderStyle') || 'Border Style'}</h4>
+        <p className="section-description">{t('defineBorderStyle') || 'Define the circle border style'}</p>
         <div className="style-options">
           {BORDER_STYLES.map(style => (
             <button
@@ -1054,13 +1048,13 @@ const CustomizationPanel = ({ customization, updateCustomization, resetCustomiza
           ))}
         </div>
         <div className="current-selection">
-          Estilo atual: <strong>{BORDER_STYLES.find(s => s.id === draft.borderStyle)?.label}</strong>
+          {t('currentStyle') || 'Current style'}: <strong>{BORDER_STYLES.find(s => s.id === draft.borderStyle)?.label}</strong>
         </div>
       </div>
       
       <div className="customization-section">
-        <h4>Estilo de Fundo</h4>
-        <p className="section-description">Escolha o estilo de fundo do jogo</p>
+        <h4>{t('backgroundStyle') || 'Background Style'}</h4>
+        <p className="section-description">{t('chooseBackgroundStyle') || 'Choose the game background style'}</p>
         <div className="style-options">
           {BG_STYLES.map(style => (
             <button
@@ -1075,13 +1069,13 @@ const CustomizationPanel = ({ customization, updateCustomization, resetCustomiza
           ))}
         </div>
         <div className="current-selection">
-          Fundo atual: <strong>{BG_STYLES.find(s => s.id === draft.backgroundStyle)?.label}</strong>
+          {t('currentBackground') || 'Current background'}: <strong>{BG_STYLES.find(s => s.id === draft.backgroundStyle)?.label}</strong>
         </div>
       </div>
       
       <div className="customization-section">
-        <h4>Efeitos Visuais</h4>
-        <p className="section-description">Adicione efeitos especiais ao jogo</p>
+        <h4>{t('visualEffects') || 'Visual Effects'}</h4>
+        <p className="section-description">{t('addVisualEffects') || 'Add special effects to the game'}</p>
         <div className="style-options">
           {EFFECTS.map(effect => (
             <button
@@ -1096,16 +1090,16 @@ const CustomizationPanel = ({ customization, updateCustomization, resetCustomiza
           ))}
         </div>
         <div className="current-selection">
-          Efeito atual: <strong>{EFFECTS.find(e => e.id === draft.effects)?.label}</strong>
+          {t('currentEffect') || 'Current effect'}: <strong>{EFFECTS.find(e => e.id === draft.effects)?.label}</strong>
         </div>
       </div>
       
       <div className="customization-footer">
         <button className="button secondary" onClick={handleReset}>
-          <FaUndo /> Resetar
+          <FaUndo /> {t('reset') || 'Reset'}
         </button>
         <button className="button primary" onClick={handleSave}>
-          <FaSave /> Salvar
+          <FaSave /> {t('save')}
         </button>
       </div>
     </div>
@@ -1287,14 +1281,14 @@ const SettingsModal = ({ isOpen, onClose, theme, toggleTheme, customization, upd
           
           {activeTab === 'about' && (
             <div className="settings-section">
-              <h3 className="settings-subtitle">Sobre o Jogo</h3>
+              <h3 className="settings-subtitle">{t('aboutGame') || 'About the Game'}</h3>
               <div className="about-content">
                 <p>
-                  <strong>Nutria Tap</strong> é um jogo incremental onde você alimenta uma nutria para ganhar pontos.
+                  {t('aboutGameDesc') || 'Nutria Tap is an incremental game where you feed a nutria to earn points.'}
                 </p>
                 <p>
-                  Versão: 1.0.0<br />
-                  Desenvolvido com 💚 por Equipe Nutria
+                  {t('version') || 'Version'}: 1.0.0<br />
+                  {t('developedBy') || 'Developed with 💚 by Nutria Team'}
                 </p>
                 <div className="social-links">
                   <a href="#" className="social-link">
@@ -1314,7 +1308,7 @@ const SettingsModal = ({ isOpen, onClose, theme, toggleTheme, customization, upd
         
         <div className="settings-footer">
           <button className="button secondary" onClick={onClose}>
-            Fechar
+            {t('close')}
           </button>
         </div>
       </div>
@@ -1323,7 +1317,7 @@ const SettingsModal = ({ isOpen, onClose, theme, toggleTheme, customization, upd
 };
 
 const NutriaGame = () => {
-  const { gameState, resetGame, theme, setTheme, seasonalEvent, equippedTitle, titles, customization, updateCustomization, resetCustomization, getCircleColors, getBorderStyles, getBgStyles, getEffects, levelUpEffect, prestigeMessage } = useGame();
+  const { gameState, resetGame, theme, setTheme, seasonalEvent, equippedTitle, titles, customization, updateCustomization, resetCustomization, getCircleColors, getBorderStyles, getBgStyles, getEffects, levelUpEffect, prestigeMessage, setPrestigeMessage } = useGame();
   const { t, language, changeLanguage } = useLanguage();
   const { user, isLoggedIn, updateUserStats } = useAuth();
   const [showConfirmReset, setShowConfirmReset] = useState(false);
@@ -1454,22 +1448,22 @@ const NutriaGame = () => {
               <div className="prestige-icon">
                 <FaStar />
               </div>
-              <h2 className="prestige-title">Prestígio Realizado!</h2>
+              <h2 className="prestige-title">{t('prestigeCompletedTitle')}</h2>
             </div>
             <div className="prestige-modal-content">
               <p className="prestige-message-text">{prestigeMessage}</p>
               <div className="prestige-effects">
                 <div className="prestige-effect">
                   <span className="effect-icon">⚡</span>
-                  <span className="effect-text">Multiplicadores Aplicados</span>
+                  <span className="effect-text">{t('currentMultiplier')}</span>
                 </div>
                 <div className="prestige-effect">
                   <span className="effect-icon">🎯</span>
-                  <span className="effect-text">Progresso Resetado</span>
+                  <span className="effect-text">{t('prestigeReset')}</span>
                 </div>
                 <div className="prestige-effect">
                   <span className="effect-icon">🚀</span>
-                  <span className="effect-text">Novo Começo</span>
+                  <span className="effect-text">{t('newStart') || 'New Start'}</span>
                 </div>
               </div>
             </div>
@@ -1478,7 +1472,7 @@ const NutriaGame = () => {
                 className="prestige-close-btn"
                 onClick={() => setPrestigeMessage(null)}
               >
-                <FaCheck /> Continuar
+                <FaCheck /> {t('continue')}
               </button>
             </div>
           </div>
@@ -1516,7 +1510,7 @@ const NutriaGame = () => {
             </button>
           </div>
           <div className="event-rewards">
-            <span className="event-rewards-label">Recompensas:</span>
+            <span className="event-rewards-label">{t('rewards')}</span>
             <div className="event-rewards-list">
               {seasonalEvent.rewards.map(r => (
                 <span key={r} className="event-reward-item">
@@ -1545,7 +1539,7 @@ const NutriaGame = () => {
               </div>
               <div className="energy-info">
                 <span className="energy-amount">{gameState.energy?.current || 100}/{gameState.energy?.max || 100}</span>
-                <span className="energy-label">ENERGIA</span>
+                <span className="energy-label">{t('energy') || 'ENERGY'}</span>
               </div>
               <div className="energy-glow"></div>
             </div>
@@ -1594,7 +1588,7 @@ const NutriaGame = () => {
           {equippedTitle && (
             <div className="player-title-badge">
               <div className="title-icon">👑</div>
-              <span className="title-text">{titles.find(t => t.id === equippedTitle)?.name || 'Iniciante'}</span>
+              <span className="title-text">{titles.find(t => t.id === equippedTitle)?.name || t('beginner')}</span>
             </div>
           )}
           
@@ -1616,7 +1610,7 @@ const NutriaGame = () => {
               <FaCoins />
             </div>
             <div className="currency-info">
-              <span className="currency-amount">{gameState.coins.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span className="currency-amount">{gameState.coins.toLocaleString(language === 'pt' ? 'pt-BR' : 'en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               <span className="currency-symbol">pNTR</span>
             </div>
             <div className="currency-glow"></div>
@@ -1776,8 +1770,8 @@ const NutriaGame = () => {
       
       <Onboarding onComplete={() => console.log('Onboarding completed')} />
       
-        {/* Sistema de Notificações */}
-        <NotificationContainer />
+      {/* Sistema de Notificações */}
+      <NotificationContainer />
 
     </div>
   );

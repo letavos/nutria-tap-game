@@ -91,7 +91,7 @@ const EventsTab = () => {
     <div className="events-tab-container">
       <div className="events-header">
         <h3>{t('events')}</h3>
-        <p>Eventos especiais e conquistas sazonais</p>
+        <p>{t('eventsHeaderDesc')}</p>
       </div>
 
       <div className="events-list">
@@ -127,11 +127,11 @@ const EventsTab = () => {
 
       <div className="events-info">
         <div className="info-card">
-          <h4>Como funcionam os eventos?</h4>
+          <h4>{t('howEventsWork')}</h4>
           <ul>
-            <li><strong>Eventos Permanentes:</strong> Sempre disponíveis para desbloqueio</li>
-            <li><strong>Eventos Sazonais:</strong> Disponíveis apenas durante períodos específicos</li>
-            <li><strong>Recompensas:</strong> Cada evento oferece recompensas exclusivas</li>
+            <li><strong>{t('permanentEvents')}:</strong> {t('permanentEventsDesc')}</li>
+            <li><strong>{t('seasonalEvents')}:</strong> {t('seasonalEventsDesc')}</li>
+            <li><strong>{t('rewards')}:</strong> {t('eventRewards')}</li>
           </ul>
         </div>
       </div>

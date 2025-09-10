@@ -1,25 +1,19 @@
 // Service Worker para Nutria Tap PWA
-const CACHE_NAME = 'nutria-tap-v1.0.0';
-const STATIC_CACHE = 'nutria-static-v1';
-const DYNAMIC_CACHE = 'nutria-dynamic-v1';
+// Atualize a versão para invalidar caches antigos quando necessário
+const CACHE_VERSION = 'v1.0.3';
+const STATIC_CACHE = `nutria-static-${CACHE_VERSION}`;
+const DYNAMIC_CACHE = `nutria-dynamic-${CACHE_VERSION}`;
 
-// Arquivos essenciais para cache
+// Arquivos essenciais para cache (somente estáticos públicos)
+// Evite colocar arquivos de /src aqui; em produção, o Vite gera assets com hash em /assets
 const STATIC_FILES = [
   '/',
   '/index.html',
-  '/src/main.jsx',
-  '/src/App.jsx',
-  '/src/App.css',
-  '/src/index.css',
-  '/src/components/NutriaGame.jsx',
-  '/src/components/NutriaClicker.jsx',
-  '/src/context/GameContext.jsx',
-  '/src/context/LanguageContext.jsx',
-  '/src/context/UserContext.jsx',
+  '/manifest.json',
+  // Ícones/imagens públicas conhecidas (ajuste conforme necessário)
   '/src/assets/nutria_1.png',
   '/src/assets/nutria_2.png',
-  '/src/assets/nutria_3.png',
-  '/manifest.json'
+  '/src/assets/nutria_3.png'
 ];
 
 // Instalação do Service Worker
@@ -67,6 +61,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  // NUNCA cachear chamadas ao Supabase (auth/storage/rest/realtime)
+  if (url.origin.includes('supabase.co')) {
+    event.respondWith(fetch(request));
+    return;
+  }
 
   // Estratégia Cache First para arquivos estáticos
   if (request.destination === 'script' || 
@@ -134,6 +134,19 @@ self.addEventListener('fetch', (event) => {
               });
             });
         })
+    );
+  }
+  
+  // Para requests de documentos (HTML), tente network first, fallback para cache (index.html)
+  else if (request.destination === 'document') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const respClone = response.clone();
+          caches.open(STATIC_CACHE).then((cache) => cache.put(request, respClone));
+          return response;
+        })
+        .catch(() => caches.match(request).then((resp) => resp || caches.match('/index.html')))
     );
   }
 });

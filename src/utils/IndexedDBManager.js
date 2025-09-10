@@ -72,13 +72,16 @@ class IndexedDBManager {
   async saveGameData(gameState) {
     if (!this.db) await this.init();
 
+    // Sanitizar snapshot para evitar DataCloneError (remove funções/valores não serializáveis)
+    const safeSnapshot = JSON.parse(JSON.stringify(gameState, (k, v) => (typeof v === 'function' ? undefined : v)));
+
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction(['gameData'], 'readwrite');
       const store = transaction.objectStore('gameData');
       
       const gameData = {
         id: 'currentGame',
-        data: gameState,
+        data: safeSnapshot,
         timestamp: Date.now(),
         type: 'gameState',
         version: '1.0.0'

@@ -7,22 +7,6 @@ import { useAuth } from './AuthContext';
 
 const GameContext = createContext();
 
-// Função para limpar dados antes de salvar no IndexedDB
-const cleanDataForStorage = (data) => {
-  const cleaned = JSON.parse(JSON.stringify(data, (key, value) => {
-    // Remove funções e propriedades não serializáveis
-    if (typeof value === 'function') {
-      return undefined;
-    }
-    // Remove propriedades internas de sincronização
-    if (key === 'lastSyncTimestamp' || key === 'isDataValidated' || key === 'fraudDetection') {
-      return undefined;
-    }
-    return value;
-  }));
-  return cleaned;
-};
-
 const MAX_LEVEL = 10;
 const getNutriaImage = (level) => `/assets/nutria_${Math.min(level, MAX_LEVEL)}.png`;
 const getExpToNextLevel = (level) => Math.floor(100 * Math.pow(level, 1.7));
@@ -108,13 +92,13 @@ const getBorderStyles = (t) => [
 ];
 const getBgStyles = (t) => [
   { id: 'default', label: t('default') },
-  { id: 'gradient1', label: t('greenOrangeGradient') },
-  { id: 'gradient2', label: t('bluePurpleGradient') },
+  { id: 'gradient1', label: t('gradient1') },
+  { id: 'gradient2', label: t('gradient2') },
   { id: 'dark', label: t('dark') },
   { id: 'light', label: t('light') },
 ];
 const getEffects = (t) => [
-  { id: 'none', label: t('noEffect') },
+  { id: 'none', label: t('none') },
   { id: 'particles', label: t('particles') },
   { id: 'shine', label: t('shine') },
 ];
@@ -306,61 +290,274 @@ export const GameProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => localStorage.getItem('nutriaTheme') || 'auto');
   const [prestigeMessage, setPrestigeMessage] = useState(null);
   const [notifications, setNotifications] = useState([]);
+  const [isDataLoadedFromServer, setIsDataLoadedFromServer] = useState(false);
+  const [isLoadingFromServer, setIsLoadingFromServer] = useState(false);
+  // Estado de autenticação
+  const { isLoggedIn, loading: authLoading } = useAuth();
   
-  // Extrair user do AuthContext
-  const { user } = useAuth();
-  
-  // ===== SISTEMA DE SINCRONIZAÇÃO COM REALTIME =====
-  
-  // Configurar Realtime do Supabase
-  useEffect(() => {
-    const setupRealtime = async () => {
+  // Função para carregar dados do Supabase (FONTE DA VERDADE)
+  const loadGameDataFromSupabase = useCallback(async () => {
+    try {
+      setIsLoadingFromServer(true);
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        console.log('Usuário não logado, usando dados locais');
+        return false;
+      }
 
-      // Assinar mudanças na tabela game_stats
-      const channel = supabase
-        .channel('game_stats_changes')
-        .on(
-          'postgres_changes',
-          { 
-            event: '*', 
-            schema: 'public', 
-            table: 'game_stats',
-            filter: `user_id=eq.${user.id}`
+      console.log('🔍 Carregando dados do Supabase para usuário:', user.id);
+      
+      // Buscar dados do game_stats
+      const { data: gameStats, error: statsError } = await supabase
+        .from('game_stats')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (statsError) {
+        console.error('Erro ao carregar game_stats:', statsError);
+        return false;
+      }
+
+      if (!gameStats) {
+        console.log('📝 Usuário não possui game_stats, criando...');
+        // Criar game_stats inicial
+        const initialStats = {
+          user_id: user.id,
+          total_coins: 0,
+          total_clicks: 0,
+          level: 1,
+          experience: 0,
+          prestige_level: 0,
+          streak: 0,
+          max_streak: 0,
+          total_achievements: 0,
+          last_click: new Date().toISOString(),
+          last_sync: new Date().toISOString(),
+          referrals: [],
+          achievements: [],
+          airdrop_points: 0,
+          days_active: [],
+          missions: {
+            daily: [],
+            weekly: [],
+            last_daily: new Date().toISOString().slice(0, 10),
+            last_weekly: new Date().toISOString().slice(0, 10)
           },
-          (payload) => {
-            console.log('Mudança detectada no servidor:', payload);
-            
-            if (payload.eventType === 'UPDATE' && payload.new) {
-              // Atualizar estado local com dados do servidor
-              setGameState(prev => ({
-                ...prev,
-                coins: payload.new.total_coins || prev.coins,
-                level: payload.new.level || prev.level,
-                experience: payload.new.experience || prev.experience,
-                totalClicks: payload.new.total_clicks || prev.totalClicks,
-                streak: payload.new.streak || prev.streak,
-                maxStreak: payload.new.max_streak || prev.maxStreak,
-                achievements: payload.new.achievements || prev.achievements,
-                lastSync: payload.new.last_sync || prev.lastSync
-              }));
-              
-              console.log('Estado atualizado via Realtime');
-            }
+          rewards: {
+            daily: { streak: 0, last_claim: null, available: true, last_claim_timestamp: null },
+            weekly: { last_claim: null, available: true, last_claim_timestamp: null },
+            monthly: { last_claim: null, available: true, last_claim_timestamp: null },
+            login: { claimed: [], last_claim: null, last_claim_timestamp: null }
+          },
+          customization: {
+            circleColor: 'green',
+            borderStyle: 'pulse',
+            backgroundStyle: 'default',
+            effects: 'none'
           }
-        )
-        .subscribe();
+        };
+        
+        const { error: createError } = await supabase
+          .from('game_stats')
+          .insert(initialStats);
+        
+        if (createError) {
+          console.error('Erro ao criar game_stats:', createError);
+          return false;
+        }
+        
+        console.log('✅ Game_stats criado com sucesso');
+        // Carregar dados iniciais criados
+        const serverGameState = {
+          coins: 0,
+          clickValue: 1,
+          level: 1,
+          experience: 0,
+          experienceToNextLevel: getExpToNextLevel(1),
+          nutriaImage: getNutriaImage(1),
+          streak: 0,
+          maxStreak: 0,
+          lastClick: 0,
+          totalClicks: 0,
+          daysActive: [],
+          stats: {
+            strength: 1,
+            agility: 1,
+            defense: 1,
+            charisma: 1
+          },
+          upgrades: {
+            clickUpgrade: {
+              level: 1,
+              cost: 10,
+              value: 1
+            },
+            autoClicker: {
+              level: 0,
+              cost: 100,
+              value: 0.1,
+              interval: 1000,
+              active: false
+            },
+            multiplier: {
+              level: 0,
+              cost: 500,
+              value: 1.5,
+              duration: 30000
+            },
+            prestige: {
+              level: 0,
+              cost: 10000,
+              multiplier: 1.1
+            }
+          },
+          prestige: {
+            level: 0,
+            points: 0,
+            totalPrestige: 0,
+            multipliers: {
+              coins: 1,
+              experience: 1,
+              upgrades: 1
+            }
+          },
+          energy: {
+            current: 100,
+            max: 100,
+            lastUpdate: Date.now(),
+            recoveryRate: 1,
+            clickCost: 1,
+            isRecovering: true
+          },
+          antiCheat: {
+            lastClickTime: 0,
+            clickCount: 0,
+            maxClicksPerSecond: 10,
+            suspiciousActivity: false
+          },
+          activeBonuses: [],
+          rewards: INITIAL_STATE.rewards,
+          challenges: INITIAL_STATE.challenges,
+          dynamicEvents: INITIAL_STATE.dynamicEvents,
+          referralId: '',
+          referrals: [],
+          referralStats: [],
+          achievements: [],
+          airdropPoints: 0,
+          missions: INITIAL_STATE.missions,
+          seasonalEvent: getActiveEvent(),
+          titles: INITIAL_STATE.titles,
+          equippedTitle: 'starter',
+          customization: INITIAL_STATE.customization
+        };
+        
+        setGameState(serverGameState);
+        setIsDataLoadedFromServer(true);
+        return true;
+      }
 
-      return () => {
-        supabase.removeChannel(channel);
+      // Converter dados do Supabase para o formato do jogo
+      let serverGameState = {
+        coins: gameStats.total_coins || 0,
+        clickValue: 1, // Será calculado baseado no nível
+        level: gameStats.level || 1,
+        experience: gameStats.experience || 0,
+        experienceToNextLevel: getExpToNextLevel(gameStats.level || 1),
+        nutriaImage: getNutriaImage(gameStats.level || 1),
+        streak: gameStats.streak || 0,
+        maxStreak: gameStats.max_streak || 0,
+        lastClick: gameStats.last_click ? new Date(gameStats.last_click).getTime() : 0,
+        totalClicks: gameStats.total_clicks || 0,
+        daysActive: gameStats.days_active || [],
+        stats: {
+          strength: 1,
+          agility: 1,
+          defense: 1,
+          charisma: 1
+        },
+        upgrades: gameStats.upgrades && Object.keys(gameStats.upgrades).length > 0 ? gameStats.upgrades : {
+          clickUpgrade: { level: 1, cost: 10, value: 1 },
+          autoClicker: { level: 0, cost: 100, value: 0.1, interval: 1000, active: false },
+          multiplier: { level: 0, cost: 500, value: 1.5, duration: 30000 },
+          prestige: { level: gameStats.prestige_level || 0, cost: 10000, multiplier: 1.1 }
+        },
+        prestige: {
+          level: gameStats.prestige_level || 0,
+          points: 0,
+          totalPrestige: 0,
+          multipliers: {
+            coins: 1,
+            experience: 1,
+            upgrades: 1
+          }
+        },
+        energy: {
+          current: 100,
+          max: 100,
+          lastUpdate: Date.now(),
+          recoveryRate: 1,
+          clickCost: 1,
+          isRecovering: true
+        },
+        antiCheat: {
+          lastClickTime: 0,
+          clickCount: 0,
+          maxClicksPerSecond: 10,
+          suspiciousActivity: false
+        },
+        activeBonuses: [],
+        rewards: gameStats.rewards || INITIAL_STATE.rewards,
+        challenges: INITIAL_STATE.challenges,
+        dynamicEvents: INITIAL_STATE.dynamicEvents,
+        referralId: gameStats.referral_id || '',
+        referrals: gameStats.referrals || [],
+        referralStats: [],
+        achievements: gameStats.achievements || [],
+        airdropPoints: gameStats.airdrop_points || 0,
+        missions: gameStats.missions || INITIAL_STATE.missions,
+        seasonalEvent: getActiveEvent(),
+        titles: INITIAL_STATE.titles,
+        equippedTitle: 'starter',
+        customization: gameStats.customization || INITIAL_STATE.customization
       };
-    };
+      // Recalcular multiplicadores de prestígio com base no nível
+      const prestigeLevel = serverGameState.prestige.level || 0;
+      const prestigeMultiplier = 1 + prestigeLevel * 0.1;
+      serverGameState = {
+        ...serverGameState,
+        prestige: {
+          ...serverGameState.prestige,
+          multipliers: {
+            coins: prestigeMultiplier,
+            experience: prestigeMultiplier,
+            upgrades: prestigeMultiplier
+          }
+        }
+      };
 
-    const cleanup = setupRealtime();
-    return () => {
-      cleanup.then(cleanupFn => cleanupFn && cleanupFn());
-    };
+      // Recalcular clickValue baseado em upgrades e prestígio
+      try {
+        const clickUpgradeLevel = serverGameState.upgrades?.clickUpgrade?.value || 1;
+        serverGameState.clickValue = Math.max(1, Math.floor(clickUpgradeLevel * serverGameState.prestige.multipliers.coins));
+      } catch {}
+
+      // Não mesclar mais dados locais nos upgrades (servidor é a verdade)
+
+      console.log('✅ Dados do Supabase carregados:', serverGameState);
+      
+      // Atualizar estado com dados do servidor
+      setGameState(serverGameState);
+      setIsDataLoadedFromServer(true);
+      
+      return true;
+      
+    } catch (error) {
+      console.error('Erro ao carregar dados do Supabase:', error);
+      return false;
+    } finally {
+      setIsLoadingFromServer(false);
+    }
   }, []);
 
   // Função para sincronizar dados com Supabase
@@ -369,37 +566,41 @@ export const GameProvider = ({ children }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // PRIMEIRO: Verificar se já existem dados no Supabase
-      const { data: existingData, error: fetchError } = await supabase
+      // Verificar se o usuário já tem game_stats
+      const { data: existingStats } = await supabase
         .from('game_stats')
-        .select('*')
+        .select('user_id, upgrades, prestige_level')
         .eq('user_id', user.id)
         .single();
 
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        console.error('Erro ao buscar dados existentes:', fetchError);
-        return;
-      }
-
-      // Se existem dados no servidor, verificar se os dados locais são válidos
-      if (existingData) {
-        console.log('📊 Dados existentes no servidor:', existingData);
-        
-        // Só atualizar se os dados locais são melhores que os do servidor
-        const shouldUpdate = (
-          updatedState.coins > (existingData.total_coins || 0) ||
-          updatedState.level > (existingData.level || 1) ||
-          updatedState.totalClicks > (existingData.total_clicks || 0) ||
-          updatedState.achievements.length > (existingData.achievements?.length || 0)
-        );
-
-        if (!shouldUpdate) {
-          console.log('⚠️ Dados locais não são melhores que os do servidor, pulando sincronização');
-          return;
+      // Merge defensivo (nunca reduzir níveis)
+      const incomingUpgrades = updatedState.upgrades || INITIAL_STATE.upgrades;
+      const serverUpgrades = existingStats?.upgrades || {};
+      const mergedUpgrades = {
+        clickUpgrade: {
+          level: Math.max(incomingUpgrades?.clickUpgrade?.level || 1, serverUpgrades?.clickUpgrade?.level || 1),
+          cost: Math.max(incomingUpgrades?.clickUpgrade?.cost || 10, serverUpgrades?.clickUpgrade?.cost || 10),
+          value: Math.max(incomingUpgrades?.clickUpgrade?.value || 1, serverUpgrades?.clickUpgrade?.value || 1)
+        },
+        autoClicker: {
+          level: Math.max(incomingUpgrades?.autoClicker?.level || 0, serverUpgrades?.autoClicker?.level || 0),
+          cost: Math.max(incomingUpgrades?.autoClicker?.cost || 100, serverUpgrades?.autoClicker?.cost || 100),
+          value: Math.max(incomingUpgrades?.autoClicker?.value || 0.1, serverUpgrades?.autoClicker?.value || 0.1),
+          interval: Math.min(incomingUpgrades?.autoClicker?.interval || 1000, serverUpgrades?.autoClicker?.interval || 1000),
+          active: incomingUpgrades?.autoClicker?.active || serverUpgrades?.autoClicker?.active || false
+        },
+        multiplier: {
+          level: Math.max(incomingUpgrades?.multiplier?.level || 0, serverUpgrades?.multiplier?.level || 0),
+          cost: Math.max(incomingUpgrades?.multiplier?.cost || 500, serverUpgrades?.multiplier?.cost || 500),
+          value: Math.max(incomingUpgrades?.multiplier?.value || 1.5, serverUpgrades?.multiplier?.value || 1.5),
+          duration: Math.max(incomingUpgrades?.multiplier?.duration || 30000, serverUpgrades?.multiplier?.duration || 30000)
+        },
+        prestige: {
+          level: Math.max(updatedState?.prestige?.level || 0, existingStats?.prestige_level || 0),
+          cost: Math.max(incomingUpgrades?.prestige?.cost || 10000, serverUpgrades?.prestige?.cost || 10000),
+          multiplier: Math.max(incomingUpgrades?.prestige?.multiplier || 1.1, serverUpgrades?.prestige?.multiplier || 1.1)
         }
-
-        console.log('✅ Dados locais são melhores, atualizando servidor');
-      }
+      };
 
       const gameStats = {
         user_id: user.id,
@@ -407,33 +608,49 @@ export const GameProvider = ({ children }) => {
         total_clicks: updatedState.totalClicks,
         level: updatedState.level,
         experience: updatedState.experience,
-        prestige_level: updatedState.prestige.level,
+        prestige_level: Math.max(updatedState.prestige.level, existingStats?.prestige_level || 0),
         streak: updatedState.streak,
         max_streak: Math.max(updatedState.streak, updatedState.maxStreak || 0),
-        total_achievements: updatedState.achievements.length,
+        total_achievements: Array.isArray(updatedState.achievements) ? updatedState.achievements.length : 0,
         last_click: new Date().toISOString(),
         last_sync: new Date().toISOString(),
-        // Sincronizar dados completos
-        achievements: updatedState.achievements,
-        prestige: updatedState.prestige,
-        missions: updatedState.missions,
-        dynamic_events: updatedState.dynamicEvents,
-        rewards: updatedState.rewards,
-        active_bonuses: updatedState.activeBonuses,
-        challenges: updatedState.challenges,
-        customization: updatedState.customization,
-        titles: updatedState.titles,
-        equipped_title: updatedState.equippedTitle
+        referrals: updatedState.referrals || [],
+        achievements: updatedState.achievements || [],
+        airdrop_points: updatedState.airdropPoints || 0,
+        days_active: updatedState.daysActive || [],
+        missions: updatedState.missions || INITIAL_STATE.missions,
+        rewards: updatedState.rewards || INITIAL_STATE.rewards,
+        customization: updatedState.customization || INITIAL_STATE.customization,
+        upgrades: mergedUpgrades
       };
 
-      const { error } = await supabase
-        .from('game_stats')
-        .upsert(gameStats, { onConflict: 'user_id' });
+      // RPC atômico para persistir upgrades/coins/prestígio
+      const { error } = await supabase.rpc('save_game_state', {
+        p_coins: Number(updatedState.coins) || 0,
+        p_upgrades: mergedUpgrades,
+        p_prestige_level: Math.max(updatedState.prestige.level, existingStats?.prestige_level || 0)
+      });
 
       if (error) {
-        console.error('Erro ao sincronizar com Supabase:', error);
+        console.error('Erro RPC save_upgrades:', error);
       } else {
-        console.log('📊 Dados completos sincronizados com Supabase:', gameStats);
+        console.log('✅ RPC save_upgrades concluído');
+        // Upsert opcional na tabela user_upgrades (se existir)
+        try {
+          const upgrades = mergedUpgrades;
+          const rows = [
+            { upgrade_type: 'clickUpgrade', level: upgrades.clickUpgrade?.level || 1, cost: upgrades.clickUpgrade?.cost || 10 },
+            { upgrade_type: 'autoClicker', level: upgrades.autoClicker?.level || 0, cost: upgrades.autoClicker?.cost || 100 },
+            { upgrade_type: 'multiplier', level: upgrades.multiplier?.level || 0, cost: upgrades.multiplier?.cost || 500 },
+            { upgrade_type: 'prestige', level: gameStats.prestige_level || 0, cost: upgrades.prestige?.cost || 10000 }
+          ].map(r => ({ user_id: user.id, ...r }));
+          const { error: upError } = await supabase
+            .from('user_upgrades')
+            .upsert(rows, { onConflict: 'user_id,upgrade_type' });
+          if (upError) console.warn('user_upgrades upsert error:', upError.message);
+        } catch (e) {
+          console.warn('Tabela user_upgrades indisponível ou sem permissões RLS:', e?.message || e);
+        }
       }
     } catch (error) {
       console.error('Erro na sincronização:', error);
@@ -495,6 +712,25 @@ export const GameProvider = ({ children }) => {
         // Inicializar IndexedDB
         await indexedDBManager.init();
         
+        // 1. Aguardar estado de autenticação
+        if (authLoading) {
+          return;
+        }
+
+        if (isLoggedIn) {
+          console.log('🔍 Usuário logado, carregando dados do Supabase...');
+          const serverDataLoaded = await loadGameDataFromSupabase();
+          if (serverDataLoaded) {
+            console.log('✅ Dados carregados do Supabase com sucesso');
+            return; // Dados do servidor prevalecem
+          }
+          console.log('⚠️ Erro ao carregar do Supabase mesmo logado');
+          return; // Evitar fallback para não sobrescrever
+        }
+
+        // 2. FALLBACK: Usuário não logado, usar dados locais
+        console.log('⚠️ Usuário não logado, usando dados locais como fallback');
+        
         // Buscar referralId do banco de dados
         const referralIdFromDB = await syncReferralIdFromDB();
         console.log('Referral ID do banco:', referralIdFromDB);
@@ -514,114 +750,10 @@ export const GameProvider = ({ children }) => {
           }
         }
         
-        // ===== SISTEMA SUPABASE COMO FONTE DA VERDADE =====
-        // 1. PRIMEIRO: Carregar dados do Supabase (fonte da verdade)
-        const { data: { user } } = await supabase.auth.getUser();
-        let serverData = null;
-        
-        if (user) {
-          console.log('🔍 Usuário logado, carregando dados do Supabase...');
-          
-          // Verificar se usuário já existe na tabela game_stats
-          const { data: existingStats, error: fetchError } = await supabase
-            .from('game_stats')
-            .select('*')
-            .eq('user_id', user.id)
-            .single();
-
-          if (fetchError && fetchError.code !== 'PGRST116') {
-            console.error('❌ Erro ao buscar dados do servidor:', fetchError);
-          } else if (existingStats) {
-            console.log('✅ Dados encontrados no Supabase:', existingStats);
-            serverData = existingStats;
-          } else {
-            console.log('🆕 Usuário não encontrado no Supabase, criando dados iniciais...');
-            // Criar dados iniciais no Supabase APENAS se não existir
-            const { error: insertError } = await supabase
-              .from('game_stats')
-              .insert({
-                user_id: user.id,
-                total_coins: 0,
-                total_clicks: 0,
-                level: 1,
-                experience: 0,
-                prestige_level: 0,
-                streak: 0,
-                max_streak: 0,
-                total_achievements: 0,
-                last_click: new Date().toISOString(),
-                last_sync: new Date().toISOString(),
-                achievements: [],
-                prestige: { level: 0, points: 0 },
-                missions: { daily: {}, weekly: {} },
-                dynamic_events: [],
-                rewards: [],
-                active_bonuses: [],
-                challenges: [],
-                customization: getDefaultCustomization(),
-                titles: getTitles(() => '').map(t => ({ ...t, unlocked: false })),
-                equipped_title: 'starter'
-              });
-
-            if (insertError) {
-              console.error('❌ Erro ao criar dados iniciais:', insertError);
-            } else {
-              console.log('✅ Dados iniciais criados no Supabase');
-              serverData = {
-                total_coins: 0,
-                total_clicks: 0,
-                level: 1,
-                experience: 0,
-                prestige_level: 0,
-                streak: 0,
-                max_streak: 0,
-                total_achievements: 0,
-                achievements: [],
-                prestige: { level: 0, points: 0 },
-                missions: { daily: {}, weekly: {} },
-                dynamic_events: [],
-                rewards: [],
-                active_bonuses: [],
-                challenges: [],
-                customization: getDefaultCustomization(),
-                titles: getTitles(() => '').map(t => ({ ...t, unlocked: false })),
-                equipped_title: 'starter'
-              };
-            }
-          }
-        }
-
-        // 2. SEGUNDO: Carregar dados locais como backup/merge
+        // Tentar carregar do IndexedDB primeiro
         const savedGameState = await indexedDBManager.loadGameData();
-        
-        if (serverData) {
-          // Usar dados do Supabase como base e mergear com dados locais válidos
-          console.log('Usando dados do Supabase como base');
-          setGameState({
-            ...INITIAL_STATE,
-            ...serverData,
-            coins: serverData.total_coins || 0,
-            level: serverData.level || 1,
-            experience: serverData.experience || 0,
-            totalClicks: serverData.total_clicks || 0,
-            streak: serverData.streak || 0,
-            maxStreak: serverData.max_streak || 0,
-            achievements: serverData.achievements || [],
-            referralId: referralIdFromDB || INITIAL_STATE.referralId,
-            // Carregar dados completos do servidor
-            rewards: serverData.rewards || savedGameState?.rewards || INITIAL_STATE.rewards,
-            activeBonuses: serverData.active_bonuses || savedGameState?.activeBonuses || INITIAL_STATE.activeBonuses,
-            prestige: serverData.prestige || savedGameState?.prestige || INITIAL_STATE.prestige,
-            challenges: serverData.challenges || savedGameState?.challenges || INITIAL_STATE.challenges,
-            dynamicEvents: serverData.dynamic_events || savedGameState?.dynamicEvents || INITIAL_STATE.dynamicEvents,
-            missions: serverData.missions || savedGameState?.missions || INITIAL_STATE.missions,
-            titles: serverData.titles || savedGameState?.titles || INITIAL_STATE.titles,
-            equippedTitle: serverData.equipped_title || savedGameState?.equippedTitle || INITIAL_STATE.equippedTitle,
-            customization: serverData.customization || loadedCustomization
-          });
-        } else if (savedGameState) {
-          // Fallback: usar dados locais se não houver servidor
-          console.log('Usando dados locais como fallback');
+        if (savedGameState) {
+          console.log('Estado do jogo carregado do IndexedDB:', savedGameState);
           setGameState({
             ...INITIAL_STATE,
             ...savedGameState,
@@ -653,9 +785,8 @@ export const GameProvider = ({ children }) => {
             };
             
             setGameState(finalState);
-            // Migrar para IndexedDB (dados limpos)
-            const cleanData = cleanDataForStorage(finalState);
-            await indexedDBManager.saveGameData(cleanData);
+            // Migrar para IndexedDB
+            await indexedDBManager.saveGameData(finalState);
     } else {
             // Se não existir estado salvo, usa o ID do banco ou gera um novo
             const finalReferralId = referralIdFromDB || uuidv4().substring(0, 8);
@@ -667,7 +798,7 @@ export const GameProvider = ({ children }) => {
     }
         }
       } catch (error) {
-        console.error('Erro ao inicializar IndexedDB:', error);
+        console.error('Erro ao inicializar jogo:', error);
         // Fallback para localStorage
         const savedState = localStorage.getItem('nutriaGameState');
         const savedCustomization = localStorage.getItem('nutriaCustomization');
@@ -687,7 +818,7 @@ export const GameProvider = ({ children }) => {
           setGameState({
             ...INITIAL_STATE,
             ...parsedState,
-            referralId: referralIdFromDB || parsedState.referralId || INITIAL_STATE.referralId,
+            referralId: parsedState.referralId || INITIAL_STATE.referralId,
             rewards: parsedState.rewards || INITIAL_STATE.rewards,
             activeBonuses: parsedState.activeBonuses || INITIAL_STATE.activeBonuses,
             prestige: parsedState.prestige || INITIAL_STATE.prestige,
@@ -696,7 +827,7 @@ export const GameProvider = ({ children }) => {
             customization: loadedCustomization
           });
         } else {
-          const finalReferralId = referralIdFromDB || uuidv4().substring(0, 8);
+          const finalReferralId = uuidv4().substring(0, 8);
           setGameState(prev => ({
             ...prev,
             referralId: finalReferralId,
@@ -707,114 +838,45 @@ export const GameProvider = ({ children }) => {
     };
 
     initializeGame();
-  }, []);
+  }, [loadGameDataFromSupabase, isLoggedIn, authLoading]);
 
-  // ===== SUPABASE REALTIME - SINCRONIZAÇÃO AUTOMÁTICA =====
+  // Quando o usuário efetuar login após a inicialização, recarregar do Supabase
   useEffect(() => {
-    const setupRealtime = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.log('❌ Usuário não logado, pulando configuração do Realtime');
-        return;
-      }
-
-      console.log('🔌 Configurando Supabase Realtime para usuário:', user.id);
-
-      const channel = supabase
-        .channel(`game_stats_changes_${user.id}`)
-        .on(
-          'postgres_changes',
-          { 
-            event: '*', 
-            schema: 'public', 
-            table: 'game_stats',
-            filter: `user_id=eq.${user.id}`
-          },
-          (payload) => {
-            console.log('🔄 Mudança detectada no servidor:', payload);
-            
-            if (payload.eventType === 'UPDATE' && payload.new) {
-              console.log('📊 Atualizando dados locais com dados do servidor:', payload.new);
-              
-              setGameState(prev => {
-                const newState = {
-                  ...prev,
-                  coins: payload.new.total_coins || prev.coins,
-                  level: payload.new.level || prev.level,
-                  experience: payload.new.experience || prev.experience,
-                  totalClicks: payload.new.total_clicks || prev.totalClicks,
-                  streak: payload.new.streak || prev.streak,
-                  maxStreak: payload.new.max_streak || prev.maxStreak,
-                  achievements: payload.new.achievements || prev.achievements,
-                  lastSync: payload.new.last_sync || prev.lastSync,
-                  // Sincronizar dados de prestígio
-                  prestige: payload.new.prestige || prev.prestige,
-                  // Sincronizar dados de missões
-                  missions: payload.new.missions || prev.missions,
-                  // Sincronizar dados de eventos
-                  dynamicEvents: payload.new.dynamic_events || prev.dynamicEvents,
-                  // Sincronizar dados de recompensas
-                  rewards: payload.new.rewards || prev.rewards,
-                  // Sincronizar dados de bônus
-                  activeBonuses: payload.new.active_bonuses || prev.activeBonuses,
-                  // Sincronizar dados de desafios
-                  challenges: payload.new.challenges || prev.challenges,
-                  // Sincronizar dados de personalização
-                  customization: payload.new.customization || prev.customization,
-                  // Sincronizar dados de títulos
-                  titles: payload.new.titles || prev.titles,
-                  equippedTitle: payload.new.equipped_title || prev.equippedTitle
-                };
-                
-                console.log('🔄 Estado completo sincronizado:', newState);
-                return newState;
-              });
-              
-              console.log('✅ Estado atualizado via Realtime');
-            }
-          }
-        )
-        .subscribe((status) => {
-          console.log('📡 Status da conexão Realtime:', status);
-        });
-
-      return () => {
-        console.log('🔌 Desconectando Supabase Realtime');
-        supabase.removeChannel(channel);
-      };
-    };
-
-    const cleanup = setupRealtime();
-    return () => {
-      cleanup.then(cleanupFn => cleanupFn && cleanupFn());
-    };
-  }, [user?.id]); // Depende do ID do usuário
+    if (!authLoading && isLoggedIn) {
+      loadGameDataFromSupabase();
+    }
+  }, [authLoading, isLoggedIn, loadGameDataFromSupabase]);
 
   // Salva o estado do jogo no IndexedDB e localStorage sempre que ele mudar
   useEffect(() => {
     const timeoutId = setTimeout(async () => {
-      if (gameState.coins > 0 || gameState.level > 1 || gameState.achievements.length > 0) {
-        console.log('💾 Salvando gameState localmente:', gameState);
+      // Só salvar se não estiver carregando dados do servidor
+      if (!isLoadingFromServer && (gameState.coins > 0 || gameState.level > 1 || gameState.achievements.length > 0)) {
+        console.log('Salvando gameState completo:', gameState);
         
+        // Gerar snapshot serializável (evita funções)
+        const persistable = JSON.parse(JSON.stringify(gameState, (k, v) => (typeof v === 'function' ? undefined : v)));
+
         // Salvar no localStorage como backup
-        localStorage.setItem('nutriaGameState', JSON.stringify(gameState));
+        localStorage.setItem('nutriaGameState', JSON.stringify(persistable));
         
-        // Salvar no IndexedDB (dados limpos)
+        // Salvar no IndexedDB
         try {
-          const cleanData = cleanDataForStorage(gameState);
-          await indexedDBManager.saveGameData(cleanData);
-          console.log('✅ Dados salvos no IndexedDB com sucesso');
+          await indexedDBManager.saveGameData(persistable);
+          console.log('Dados salvos no IndexedDB com sucesso');
         } catch (error) {
-          console.error('❌ Erro ao salvar no IndexedDB:', error);
+          console.error('Erro ao salvar no IndexedDB:', error);
         }
         
-        // NÃO salvar automaticamente no Supabase aqui
-        // O Supabase será atualizado apenas quando necessário
+        // Sincronizar com Supabase se dados foram carregados do servidor
+        if (isDataLoadedFromServer) {
+          await syncToSupabase(persistable);
+        }
       }
     }, 100);
     
     return () => clearTimeout(timeoutId);
-  }, [gameState.coins, gameState.level, gameState.achievements.length, JSON.stringify(gameState.customization)]);
+  }, [gameState.coins, gameState.level, gameState.achievements.length, JSON.stringify(gameState.customization), isLoadingFromServer, isDataLoadedFromServer]);
 
   // Sistema de Recuperação de Energia
   useEffect(() => {
@@ -1092,14 +1154,20 @@ export const GameProvider = ({ children }) => {
         daysActive,
         referralStats: prev.referralStats || [],
       });
-      // Atualizar progresso de missão diária de cliques
+      // Atualizar progresso de missão diária de cliques (com normalização segura)
       let missions = { ...prev.missions };
-      missions.daily = missions.daily.map(m =>
+      const normalizedDaily = Array.isArray(missions.daily)
+        ? missions.daily
+        : getDailyMissions(() => '').map(m => ({ ...m, progress: 0, completed: false }));
+      const normalizedWeekly = Array.isArray(missions.weekly)
+        ? missions.weekly
+        : getWeeklyMissions(() => '').map(m => ({ ...m, progress: 0, completed: false }));
+      missions.daily = normalizedDaily.map(m =>
         m.id === 'click50' ? { ...m, progress: Math.min(m.progress + 1, m.goal), completed: m.progress + 1 >= m.goal } : m
       );
       // Atualizar missão semanal de streaks (contar streaks que terminam em 0 ou 5)
       if (streak % 5 === 0 && streak >= 5) {
-        missions.weekly = missions.weekly.map(m =>
+        missions.weekly = normalizedWeekly.map(m =>
           m.id === 'streak100' ? { ...m, progress: Math.min(m.progress + 1, m.goal), completed: m.progress + 1 >= m.goal } : m
         );
       }
@@ -1127,8 +1195,8 @@ export const GameProvider = ({ children }) => {
         missions,
       };
       
-      // Sincronizar com Supabase a cada 10 cliques e apenas se houver progresso significativo
-      if (newState.totalClicks % 10 === 0 && (newState.coins > 0 || newState.level > 1)) {
+      // Sincronizar com Supabase a cada 5 cliques para evitar spam
+      if (newState.totalClicks % 5 === 0) {
         syncToSupabase(newState);
       }
       
@@ -1164,7 +1232,7 @@ export const GameProvider = ({ children }) => {
       const newLevel = (upgrade.level || 1) + 1;
       // Progressão mais difícil: custo cresce mais rápido
       const newCost = Math.floor(adjustedCost * (1.9 + newLevel * 0.08));
-      const newValue = (upgrade.value || 1) + Math.floor(1 * upgradeMultiplier);
+      const newValue = (upgrade.value || 1) + Math.max(1, Math.floor(1 * upgradeMultiplier));
       
       const newState = {
         ...prev,
@@ -1181,6 +1249,12 @@ export const GameProvider = ({ children }) => {
       };
       
       // Sincronizar após compra de upgrade
+      // Persistir local imediato
+      try {
+        const persistable = JSON.parse(JSON.stringify(newState));
+        localStorage.setItem('nutriaGameState', JSON.stringify(persistable));
+        indexedDBManager.saveGameData(persistable);
+      } catch {}
       syncToSupabase(newState);
       
       return newState;
@@ -1203,10 +1277,10 @@ export const GameProvider = ({ children }) => {
       
       const newLevel = (upgrade.level || 0) + 1;
       const newCost = Math.floor(adjustedCost * (1.8 + newLevel * 0.1));
-      const newValue = (upgrade.value || 0.1) + (0.1 * upgradeMultiplier);
+      const newValue = (upgrade.value || 0.1) + Math.max(0.1, 0.1 * upgradeMultiplier);
       const newInterval = Math.max(100, (upgrade.interval || 1000) - 50);
       
-      return {
+      const newState = {
         ...prev,
         coins: prev.coins - adjustedCost,
         upgrades: {
@@ -1220,6 +1294,13 @@ export const GameProvider = ({ children }) => {
           }
         }
       };
+      try {
+        const persistable = JSON.parse(JSON.stringify(newState));
+        localStorage.setItem('nutriaGameState', JSON.stringify(persistable));
+        indexedDBManager.saveGameData(persistable);
+      } catch {}
+      syncToSupabase(newState);
+      return newState;
     });
   };
 
@@ -1267,7 +1348,7 @@ export const GameProvider = ({ children }) => {
         startTime: Date.now()
       };
       
-      return {
+      const newState = {
         ...prev,
         coins: prev.coins - (upgrade.cost || 500),
         activeBonuses: [...(prev.activeBonuses || []), newBonus],
@@ -1281,6 +1362,13 @@ export const GameProvider = ({ children }) => {
           }
         }
       };
+      try {
+        const persistable = JSON.parse(JSON.stringify(newState));
+        localStorage.setItem('nutriaGameState', JSON.stringify(persistable));
+        indexedDBManager.saveGameData(persistable);
+      } catch {}
+      syncToSupabase(newState);
+      return newState;
     });
   };
 
@@ -1300,7 +1388,8 @@ export const GameProvider = ({ children }) => {
       
       const prestigePoints = Math.floor(prev.coins / 1000);
       const newPrestigeLevel = prestige.level + 1;
-      const newMultiplier = (prestige.multipliers?.coins || 1) * 1.1;
+      // Multiplicador progressivo baseado no nível (1.0x, 1.1x, 1.2x ...)
+      const newMultiplier = 1 + newPrestigeLevel * 0.1;
       
       const newState = {
         ...INITIAL_STATE,
@@ -1340,7 +1429,12 @@ export const GameProvider = ({ children }) => {
         clickValue: Math.floor(INITIAL_STATE.clickValue * newMultiplier)
       };
       
-      // Sincronizar após prestígio
+      // Persistir local e sincronizar após prestígio
+      try {
+        const persistable = JSON.parse(JSON.stringify(newState));
+        localStorage.setItem('nutriaGameState', JSON.stringify(persistable));
+        indexedDBManager.saveGameData(persistable);
+      } catch {}
       setTimeout(() => syncToSupabase(newState), 100);
       
       return newState;
@@ -1664,8 +1758,16 @@ export const GameProvider = ({ children }) => {
     await syncToSupabase(gameState);
   };
 
-  // Sincronização manual apenas quando necessário
-  // Removida sincronização automática que estava causando problemas
+  // Sincronização inicial opcional: somente após dados do servidor
+  useEffect(() => {
+    if (isDataLoadedFromServer) {
+      const timer = setTimeout(() => {
+        console.log('Sincronização após carga do servidor...');
+        syncToSupabase(gameState);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isDataLoadedFromServer]);
 
   // Função para atualizar personalização
   const updateCustomization = (custom) => {
@@ -1782,6 +1884,7 @@ export const GameProvider = ({ children }) => {
         claimMonthlyReward,
         claimLoginReward,
         prestigeMessage,
+        setPrestigeMessage,
         addReferral,
         resetGame,
         levelUpEffect,
@@ -1816,9 +1919,10 @@ export const GameProvider = ({ children }) => {
         addNotification,
         removeNotification,
         clearNotifications,
-        
         // Sistema de Sincronização
-        manualSync
+        loadGameDataFromSupabase,
+        isDataLoadedFromServer,
+        isLoadingFromServer
       }}
     >
       {children}

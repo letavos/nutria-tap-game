@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { FaTrophy, FaMedal, FaCrown, FaCoins, FaChartLine, FaFire, FaStar, FaUsers } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -7,34 +7,92 @@ const RankingDashboard = () => {
   const { user, isLoggedIn, getRanking } = useAuth();
   const { t } = useLanguage();
   const [ranking, setRanking] = useState([]);
-  const [sortBy, setSortBy] = useState('totalCoins');
+  const [sortBy, setSortBy] = useState('overall');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  // Removidos refs desnecessários que causavam problemas
 
-  useEffect(() => {
-    loadRanking();
-  }, [sortBy]);
-
-  const loadRanking = async () => {
+  // Função interna para carregar ranking (simplificada)
+  const loadRankingInternal = useCallback(async () => {
+    console.log('🔄 [RankingDashboard] Iniciando loadRanking...', { sortBy, isLoggedIn, userId: user?.id });
+    
     setLoading(true);
+    setError(null);
+    
     try {
-      console.log('Carregando ranking...');
-      const result = await getRanking(100);
-      console.log('Resultado do ranking:', result);
+      console.log('📡 [RankingDashboard] Chamando getRanking...');
       
-      if (result.success && result.data) {
-        setRanking(result.data);
-        console.log('Ranking carregado:', result.data);
+      const result = await getRanking(100);
+      console.log('📡 [RankingDashboard] getRanking retornou:', typeof result, result);
+      
+      // Verificar se result é um array direto ou um objeto com propriedade data
+      let rankingData = null;
+      if (Array.isArray(result)) {
+        console.log('✅ [RankingDashboard] Resultado é array direto');
+        rankingData = result;
+      } else if (result && result.data && Array.isArray(result.data)) {
+        console.log('✅ [RankingDashboard] Resultado tem propriedade data (array)');
+        rankingData = result.data;
+      } else if (result && result.success && result.data && Array.isArray(result.data)) {
+        console.log('✅ [RankingDashboard] Resultado tem success e data (array)');
+        rankingData = result.data;
       } else {
-        console.error('Erro ao carregar ranking:', result.error);
+        console.log('❌ [RankingDashboard] Formato de resultado não reconhecido');
+      }
+
+      if (rankingData && rankingData.length > 0) {
+        console.log('✅ [RankingDashboard] Ranking carregado com sucesso:', rankingData.length, 'itens');
+        setRanking(rankingData);
+        setError(null);
+      } else {
+        console.error('❌ [RankingDashboard] Erro ao carregar ranking: dados inválidos', result);
+        setError('Erro ao carregar ranking');
         setRanking([]);
       }
     } catch (error) {
-      console.error('Erro ao carregar ranking:', error);
+      console.error('💥 [RankingDashboard] Exceção ao carregar ranking:', error);
+      setError(error.message || 'Erro inesperado ao carregar ranking');
       setRanking([]);
     } finally {
+      console.log('🏁 [RankingDashboard] Finalizando loadRanking, setLoading(false)');
       setLoading(false);
     }
-  };
+  }, [getRanking, sortBy, isLoggedIn, user?.id]);
+
+  // Função loadRanking simplificada
+  const loadRanking = useCallback(() => {
+    loadRankingInternal();
+  }, [loadRankingInternal]);
+
+  // Removido useEffect de inicialização desnecessário
+
+  // Carregar ranking quando usuário estiver logado
+  useEffect(() => {
+    console.log('🎯 [RankingDashboard] useEffect executado', { sortBy, isLoggedIn, userId: user?.id });
+    
+    // Só carregar se estiver logado e tiver usuário
+    if (isLoggedIn && user?.id) {
+      loadRanking();
+    } else {
+      console.log('⏸️ [RankingDashboard] Usuário não logado, pulando loadRanking');
+      setRanking([]);
+      setLoading(false);
+      setError(null);
+    }
+  }, [isLoggedIn, user?.id]);
+
+  // Função para recarregar ranking manualmente
+  const handleRefresh = useCallback(() => {
+    console.log('🔄 [RankingDashboard] Refresh manual solicitado');
+    loadRanking();
+  }, [loadRanking]);
+
+  // Função para mudar ordenação
+  const handleSortChange = useCallback((newSortBy) => {
+    console.log('🔄 [RankingDashboard] Mudando ordenação para:', newSortBy);
+    setSortBy(newSortBy);
+    // Não recarregar automaticamente, apenas mudar a ordenação local
+  }, []);
 
   const getRankIcon = (rank) => {
     if (rank === 1) return <FaCrown className="rank-icon gold" />;
@@ -137,6 +195,7 @@ const RankingDashboard = () => {
   };
 
   const getSortOptions = () => [
+    { value: 'overall', label: t('overallScore') || 'Overall Score', icon: <FaTrophy /> },
     { value: 'totalCoins', label: t('totalCoins'), icon: <FaCoins /> },
     { value: 'level', label: t('level'), icon: <FaChartLine /> },
     { value: 'totalClicks', label: t('totalClicks'), icon: <FaChartLine /> },
@@ -144,13 +203,35 @@ const RankingDashboard = () => {
     { value: 'prestigeLevel', label: t('prestigeLevel'), icon: <FaStar /> }
   ];
 
+  // Pontuação geral ponderada
+  const getOverallScore = (player) => {
+    if (!player) return 0;
+    const coins = Number(player.total_coins || 0);
+    const level = Number(player.level || 0);
+    const clicks = Number(player.total_clicks || 0);
+    const streak = Number(player.max_streak || player.streak || 0);
+    const prestige = Number(player.prestige_level || 0);
+    // Pesos ajustáveis
+    const score = coins * 1 + level * 1000 + clicks * 2 + streak * 500 + prestige * 5000;
+    return score;
+  };
+
+  const getValueForSort = (player) => {
+    if (sortBy === 'overall') return getOverallScore(player);
+    return getPlayerValue(player, sortBy);
+  };
+
+  const sortedRanking = Array.isArray(ranking)
+    ? [...ranking].sort((a, b) => (getValueForSort(b) - getValueForSort(a)))
+    : [];
+
   // Verificação de segurança
   if (loading) {
     return (
       <div className="ranking-dashboard">
         <div className="loading-container">
           <div className="loading-spinner"></div>
-          <p>Carregando ranking...</p>
+          <p>{t('loading')}</p>
         </div>
       </div>
     );
@@ -170,13 +251,23 @@ const RankingDashboard = () => {
       <div className="dashboard-content">
         {/* Filtros de ordenação */}
         <div className="ranking-filters">
-          <h3>{t('sortBy')}:</h3>
+          <div className="filters-header">
+            <h3>{t('sortBy')}:</h3>
+            <button 
+              className="refresh-button"
+              onClick={handleRefresh}
+              disabled={loading}
+              title={t('refresh') || 'Atualizar'}
+            >
+              🔄
+            </button>
+          </div>
           <div className="sort-options">
             {getSortOptions().map(option => (
               <button
                 key={option.value}
                 className={`sort-option ${sortBy === option.value ? 'active' : ''}`}
-                onClick={() => setSortBy(option.value)}
+                onClick={() => handleSortChange(option.value)}
               >
                 {option.icon}
                 <span>{option.label}</span>
@@ -184,6 +275,16 @@ const RankingDashboard = () => {
             ))}
           </div>
         </div>
+
+        {/* Exibição de erro */}
+        {error && (
+          <div className="error-message">
+            <p>❌ {error}</p>
+            <button onClick={handleRefresh} className="retry-button">
+              Tentar novamente
+            </button>
+          </div>
+        )}
 
         {/* Posição do usuário atual */}
         {isLoggedIn && user && (
@@ -230,7 +331,7 @@ const RankingDashboard = () => {
                   <div className="level-col">{t('level')}</div>
                 </div>
                 
-                {ranking && Array.isArray(ranking) && ranking.map((player, index) => {
+                {sortedRanking && Array.isArray(sortedRanking) && sortedRanking.map((player, index) => {
                   if (!player) return null;
                   
                   return (
@@ -242,14 +343,14 @@ const RankingDashboard = () => {
                         {getRankIcon(index + 1)}
                       </div>
                       <div className="username-col">
-                        <span className="username">{player.username || 'Usuário'}</span>
+                        <span className="username">{player.username || t('username')}</span>
                         {isLoggedIn && user && (player.id === user.id || player.user_id === user.id) && (
                           <span className="you-badge">({t('you')})</span>
                         )}
                       </div>
                       <div className="value-col">
                         <span className="value">
-                          {formatValue(getPlayerValue(player, sortBy), sortBy)}
+                          {formatValue(getValueForSort(player), sortBy)}
                         </span>
                       </div>
                       <div className="level-col">

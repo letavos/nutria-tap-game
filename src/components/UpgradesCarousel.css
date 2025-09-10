@@ -21,8 +21,8 @@
 .upgrades-carousel::-webkit-scrollbar { display: none; }
 
 .upgrade-card {
-  min-width: 240px;
-  max-width: 270px;
+  min-width: 280px;
+  max-width: 320px;
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%);
@@ -349,8 +349,8 @@
 }
 .upgrades-tabs-wrapper {
   width: 100%;
-  max-width: 420px;
-  margin: 0 auto 1.2rem auto;
+  max-width: 520px;
+  margin: 1.2rem auto 1.8rem auto;
   display: flex;
   flex-direction: column;
   align-items: center;

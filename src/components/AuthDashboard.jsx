@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { FaUser, FaEnvelope, FaWallet, FaTrophy, FaChartLine, FaEdit, FaSave, FaTimes, FaSignInAlt, FaSignOutAlt, FaUserPlus, FaLock, FaEye, FaEyeSlash, FaSpinner, FaUsers, FaCopy } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
+import { useGame } from '../context/GameContext';
 import { useLanguage } from '../context/LanguageContext';
 import { supabase } from '../config/supabase';
 
@@ -22,6 +23,7 @@ const AuthDashboard = () => {
   } = useAuth();
   
   const { t } = useLanguage();
+  const { gameState } = useGame();
   const [mode, setMode] = useState('view'); // 'view', 'register', 'login', 'edit'
   const [showPassword, setShowPassword] = useState(false);
   const [gameStats, setGameStats] = useState(null);
@@ -35,6 +37,20 @@ const AuthDashboard = () => {
   });
   const [formErrors, setFormErrors] = useState({});
   const [userRank, setUserRank] = useState(null);
+
+  // Refletir stats do GameContext em tempo real no painel
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    setGameStats(prev => ({
+      ...(prev || {}),
+      totalCoins: gameState?.coins ?? prev?.totalCoins ?? 0,
+      level: gameState?.level ?? prev?.level ?? 1,
+      totalClicks: gameState?.totalClicks ?? prev?.totalClicks ?? 0,
+      maxStreak: gameState?.maxStreak ?? prev?.maxStreak ?? 0,
+      prestigeLevel: gameState?.prestige?.level ?? prev?.prestigeLevel ?? 0,
+      referrals: Array.isArray(gameState?.referrals) ? gameState.referrals : (prev?.referrals || [])
+    }));
+  }, [isLoggedIn, gameState]);
 
   // Carregar ranking do usuário
   useEffect(() => {
@@ -530,12 +546,12 @@ const AuthDashboard = () => {
       <div className="referrals-dashboard-section">
         <h3 className="stats-title">
           <FaUsers className="stats-icon" />
-          Sistema de Referência
+          {t('referral')}
         </h3>
         <div className="referrals-dashboard-content">
           <div className="referral-code-dashboard">
             <div className="referral-code-info">
-              <span className="referral-code-label">Seu Código:</span>
+              <span className="referral-code-label">{t('yourCode') || 'Your Code'}:</span>
               <div className="referral-code-display">
                 <span className="referral-code-text">{gameStats?.referralId || 'N/A'}</span>
                 <button 
@@ -545,21 +561,21 @@ const AuthDashboard = () => {
                       navigator.clipboard.writeText(gameStats.referralId);
                     }
                   }}
-                  title="Copiar código"
+                  title={t('copyCode')}
                 >
                   <FaCopy />
                 </button>
               </div>
             </div>
             <div className="referrals-count-dashboard">
-              <span className="referrals-count-label">Referidos:</span>
+              <span className="referrals-count-label">{t('totalReferrals')}:</span>
               <span className="referrals-count-value">{gameStats?.referrals?.length || 0}</span>
             </div>
           </div>
           
           {gameStats?.referrals && gameStats.referrals.length > 0 && (
             <div className="referrals-list-dashboard">
-              <h4 className="referrals-list-title">Seus Referidos:</h4>
+              <h4 className="referrals-list-title">{t('myReferrals') || 'My Referrals'}:</h4>
               <div className="referrals-grid">
                 {gameStats.referrals.slice(0, 6).map((ref, index) => (
                   <div key={index} className="referral-item-dashboard">
@@ -569,7 +585,7 @@ const AuthDashboard = () => {
                 ))}
                 {gameStats.referrals.length > 6 && (
                   <div className="referral-more">
-                    +{gameStats.referrals.length - 6} mais
+                    +{gameStats.referrals.length - 6} {t('more') || 'more'}
                   </div>
                 )}
               </div>
@@ -634,7 +650,7 @@ const AuthDashboard = () => {
         </div>
 
         <div className="form-group">
-          <label htmlFor="displayName">Nome de Exibição *</label>
+          <label htmlFor="displayName">{t('displayName')} *</label>
           <input
             type="text"
             id="displayName"
@@ -660,10 +676,10 @@ const AuthDashboard = () => {
 
         <div className="form-actions">
           <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? <FaSpinner className="spinner" /> : 'Salvar'}
+            {loading ? <FaSpinner className="spinner" /> : t('save')}
           </button>
           <button type="button" className="btn-secondary" onClick={() => setMode('view')}>
-            Cancelar
+            {t('cancel')}
           </button>
         </div>
       </form>

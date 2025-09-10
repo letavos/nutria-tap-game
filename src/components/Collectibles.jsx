@@ -55,118 +55,118 @@ const Collectibles = () => {
         unlocked: gameState.achievements.length >= 15,
         image: '🌌',
         stats: { happiness: 200, energy: 150 },
-        requirement: '15+ conquistas'
+        requirement: (t('achievementsRequirement')?.replace('{count}', '15')) || '15+ achievements'
       }
     ],
     titles: [
       {
         id: 'starter',
-        name: 'Iniciante',
-        description: 'O começo de uma grande jornada',
+        name: t('beginner'),
+        description: t('startJourney'),
         rarity: 'common',
         unlocked: true,
         effect: 'Nenhum'
       },
       {
         id: 'clicker_master',
-        name: 'Mestre dos Cliques',
-        description: 'Você domina a arte de clicar',
+        name: (t('clickMaster') || 'Click Master'),
+        description: (t('youMasterClicking') || 'You master the art of clicking'),
         rarity: 'rare',
         unlocked: gameState.totalClicks >= 10000,
-        effect: '+5% pNTR por clique',
-        requirement: '10.000 cliques'
+        effect: (t('effectClickBonus') || '+5% pNTR per click'),
+        requirement: (t('clicksRequirement')?.replace('{count}', '10000')) || '10,000 clicks'
       },
       {
         id: 'prestige_legend',
-        name: 'Lenda do Prestígio',
-        description: 'Você transcendeu o comum',
+        name: (t('prestigeLegend') || 'Prestige Legend'),
+        description: (t('youTranscended') || 'You transcended the ordinary'),
         rarity: 'epic',
         unlocked: gameState.prestige.level >= 5,
-        effect: '+10% multiplicador de prestígio',
-        requirement: 'Prestígio nível 5'
+        effect: (t('effectPrestigeBonus') || '+10% prestige multiplier'),
+        requirement: (t('prestigeRequirement')?.replace('{level}', '5')) || 'Prestige level 5'
       },
       {
         id: 'nutria_emperor',
-        name: 'Imperador Nutria',
-        description: 'O mais alto título possível',
+        name: (t('nutriaEmperor') || 'Nutria Emperor'),
+        description: (t('highestTitle') || 'The highest possible title'),
         rarity: 'legendary',
         unlocked: gameState.level >= 50 && gameState.prestige.level >= 10,
-        effect: '+25% todos os ganhos',
-        requirement: 'Nível 50 + Prestígio 10'
+        effect: (t('effectAllGains') || '+25% all gains'),
+        requirement: (t('levelPrestigeRequirement')?.replace('{level}', '50').replace('{prestige}', '10')) || 'Level 50 + Prestige 10'
       }
     ],
     badges: [
       {
         id: 'first_click',
-        name: 'Primeiro Clique',
-        description: 'O início de tudo',
+        name: (t('firstClick') || 'First Click'),
+        description: (t('beginningOfAll') || 'The beginning of everything'),
         rarity: 'common',
         unlocked: gameState.totalClicks >= 1,
         image: '👆'
       },
       {
         id: 'coin_collector',
-        name: 'Colecionador de Moedas',
-        description: 'Você ama juntar moedas',
+        name: (t('coinCollector') || 'Coin Collector'),
+        description: (t('youLoveCoins') || 'You love collecting coins'),
         rarity: 'rare',
         unlocked: gameState.coins >= 100000,
         image: '💰',
-        requirement: '100.000 pNTR'
+        requirement: (t('pntrRequirement')?.replace('{amount}', '100,000')) || '100,000 pNTR'
       },
       {
         id: 'streak_king',
-        name: 'Rei do Streak',
-        description: 'Ninguém mantém streak como você',
+        name: (t('streakKing') || 'Streak King'),
+        description: (t('noOneKeepsStreak') || 'No one keeps streaks like you'),
         rarity: 'epic',
         unlocked: gameState.maxStreak >= 100,
         image: '🔥',
-        requirement: 'Streak de 100'
+        requirement: (t('streakRequirement')?.replace('{count}', '100')) || '100 streak'
       },
       {
         id: 'achievement_hunter',
-        name: 'Caçador de Conquistas',
-        description: 'Você coleciona conquistas',
+        name: (t('achievementHunter') || 'Achievement Hunter'),
+        description: (t('youCollectAchievements') || 'You collect achievements'),
         rarity: 'legendary',
         unlocked: gameState.achievements.length >= 20,
         image: '🏆',
-        requirement: '20+ conquistas'
+        requirement: (t('achievementsRequirement')?.replace('{count}', '20')) || '20+ achievements'
       }
     ],
     skins: [
       {
         id: 'default_skin',
-        name: 'Skin Padrão',
-        description: 'Aparência clássica',
+        name: (t('defaultSkin') || 'Default Skin'),
+        description: (t('classicAppearance') || 'Classic appearance'),
         rarity: 'common',
         unlocked: true,
         preview: '🦫'
       },
       {
         id: 'golden_skin',
-        name: 'Skin Dourada',
-        description: 'Brilha como ouro',
+        name: (t('goldenSkin') || 'Golden Skin'),
+        description: (t('shinesLikeGold') || 'Shines like gold'),
         rarity: 'rare',
         unlocked: gameState.level >= 15,
         preview: '✨',
-        requirement: 'Nível 15'
+        requirement: (t('levelRequirement')?.replace('{level}', '15')) || 'Level 15'
       },
       {
         id: 'neon_skin',
-        name: 'Skin Neon',
-        description: 'Brilha no escuro',
+        name: (t('neonSkin') || 'Neon Skin'),
+        description: (t('glowsInTheDark') || 'Glows in the dark'),
         rarity: 'epic',
         unlocked: gameState.prestige.level >= 3,
         preview: '💫',
-        requirement: 'Prestígio nível 3'
+        requirement: (t('prestigeRequirement')?.replace('{level}', '3')) || 'Prestige level 3'
       },
       {
         id: 'cosmic_skin',
-        name: 'Skin Cósmica',
-        description: 'Das profundezas do espaço',
+        name: (t('cosmicSkin') || 'Cosmic Skin'),
+        description: (t('fromDeepSpace') || 'From the depths of space'),
         rarity: 'legendary',
         unlocked: gameState.achievements.length >= 25,
         preview: '🌌',
-        requirement: '25+ conquistas'
+        requirement: (t('achievementsRequirement')?.replace('{count}', '25')) || '25+ achievements'
       }
     ]
   };
@@ -196,8 +196,8 @@ const Collectibles = () => {
   return (
     <div className="collectibles-container">
       <div className="collectibles-header">
-        <h2>Colecionáveis</h2>
-        <p>Colete pets, títulos, badges e skins únicos!</p>
+        <h2>{t('collectibles')}</h2>
+        <p>{t('collectUnique')}</p>
       </div>
 
       <div className="collectibles-categories">
@@ -225,7 +225,7 @@ const Collectibles = () => {
                 {item.image || item.preview || '🎁'}
               </div>
               <div className="collectible-rarity" style={{ color: getRarityColor(item.rarity) }}>
-                {getRarityLabel(item.rarity)}
+                {t(getRarityLabel(item.rarity).toLowerCase())}
               </div>
             </div>
             
@@ -236,17 +236,17 @@ const Collectibles = () => {
               {item.stats && (
                 <div className="collectible-stats">
                   <div className="stat">
-                    <span>Felicidade: {item.stats.happiness}</span>
+                    <span>{t('happiness')}: {item.stats.happiness}</span>
                   </div>
                   <div className="stat">
-                    <span>Energia: {item.stats.energy}</span>
+                    <span>{t('energy')}: {item.stats.energy}</span>
                   </div>
                 </div>
               )}
               
               {item.effect && (
                 <div className="collectible-effect">
-                  <strong>Efeito:</strong> {item.effect}
+                  <strong>{t('effect') || 'Effect'}:</strong> {item.effect}
                 </div>
               )}
             </div>
@@ -255,7 +255,7 @@ const Collectibles = () => {
               {item.unlocked ? (
                 <div className="unlocked-badge">
                   <FaCheck />
-                  <span>Desbloqueado</span>
+                  <span>{t('unlocked')}</span>
                 </div>
               ) : (
                 <div className="locked-badge">
@@ -282,11 +282,11 @@ const Collectibles = () => {
               <div className="modal-info">
                 <p className="modal-description">{showDetails.description}</p>
                 <div className="modal-rarity" style={{ color: getRarityColor(showDetails.rarity) }}>
-                  Raridade: {getRarityLabel(showDetails.rarity)}
+                  {t('rarity')}: {t(getRarityLabel(showDetails.rarity).toLowerCase())}
                 </div>
                 {showDetails.stats && (
                   <div className="modal-stats">
-                    <h4>Estatísticas:</h4>
+                    <h4>{t('statistics')}:</h4>
                     {Object.entries(showDetails.stats).map(([key, value]) => (
                       <div key={key} className="stat-row">
                         <span>{key}:</span>
@@ -297,13 +297,13 @@ const Collectibles = () => {
                 )}
                 {showDetails.effect && (
                   <div className="modal-effect">
-                    <h4>Efeito:</h4>
+                    <h4>{t('effect') || 'Effect'}:</h4>
                     <p>{showDetails.effect}</p>
                   </div>
                 )}
                 {!showDetails.unlocked && showDetails.requirement && (
                   <div className="modal-requirement">
-                    <h4>Requisito:</h4>
+                    <h4>{t('requirement') || 'Requirement'}:</h4>
                     <p>{showDetails.requirement}</p>
                   </div>
                 )}
